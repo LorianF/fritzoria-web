@@ -1,0 +1,12 @@
+export type Book = { slug:string; title:string; author:string; category:string; language:string; isbn?:string; publisher?:string; pages?:number; year?:string; cover:string; source:string; summary:string; price:number; originalPrice:number; stock:number; ebookPrice?:number; readable?:boolean; readerText?:string; featured?:boolean; added:number; hidden?:boolean; preorder?:boolean; releaseDate?:string; };
+export type Format = 'fisik'|'ebook';
+export type Line = { slug:string; format:Format; qty:number };
+export type Profile = { name:string; email:string; phone:string; passwordHash?:string };
+export type Address = { id:string; email:string; label:string; name:string; phone:string; city:string; province:string; postal:string; street:string; primary:boolean };
+export type OrderLine = Line & { title:string; author:string; cover:string; price:number; readable?:boolean };
+export type OrderStatus = 'Menunggu pembayaran'|'Pembayaran gagal'|'Diproses'|'Dikirim'|'Selesai'|'Dibatalkan'|'Retur diajukan'|'Dikembalikan';
+export type Order = { id:string; email:string; name:string; date:string; lines:OrderLine[]; subtotal:number; discount:number; shipping:number; total:number; voucher:string; courier:string; method:string; address?:Address; status:OrderStatus; history:{status:string;date:string}[]; note:string; returnReason?:string };
+export type Review = { id:string; email:string; name:string; slug:string; rating:number; text:string; date:string; hidden?:boolean };
+export type Ticket = { id:string; name:string; email:string; topic:string; message:string; status:string };
+export type Voucher = { code:string; percent:number; max:number; min:number; active:boolean; description:string };
+export type State = { version:2; profiles:Profile[]; session:string|null; cart:Line[]; wish:string[]; addresses:Address[]; orders:Order[]; reviews:Review[]; overrides:Record<string,Book>; custom:Book[]; tickets:Ticket[]; vouchers:Voucher[]; banner:string; seen:string[]; progress:Record<string,number>; bookmarks:Record<string,number[]>; subscribed:string[] };
