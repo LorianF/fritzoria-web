@@ -438,7 +438,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <Heart />
               <span className="count">{state.wish.length || ""}</span>
             </Link>
-            <Link href="/akun" className="account-button">
+            <Link href={profile ? "/akun" : "/masuk?next=/akun"} className="account-button">
               <UserRound />
               <span>
                 {profile ? profile.name.split(" ")[0] : "Masuk"}
