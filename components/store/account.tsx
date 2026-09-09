@@ -386,7 +386,7 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
           {register ? "Sudah punya akun?" : "Belum punya akun?"}{" "}
           <Link
             href={
-              register ? "/masuk" : `/daftar?next=${encodeURIComponent(next)}`
+              register ? `/masuk?next=${encodeURIComponent(next)}` : `/daftar?next=${encodeURIComponent(next)}`
             }
             className="text-link"
           >
