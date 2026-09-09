@@ -10,15 +10,10 @@ import {
 } from "react";
 import { toast, Toaster } from "sonner";
 import initial from "@/lib/store/catalog.json";
-import type {
-  State,
-  Book,
-  Format,
-  Order,
-  OrderStatus,
-} from "@/lib/store/types";
-import { available, cartError, totals, unit } from "@/lib/store/logic";
+import type { State, Book, Format, OrderStatus } from "@/lib/store/types";
+import { available } from "@/lib/store/logic";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadOrders } from "@/lib/supabase/orders";
 import { fromDatabaseBook, type DatabaseBook } from "@/lib/supabase/books";
 import {
   loadRemoteUserState,
@@ -67,6 +62,9 @@ const Context = createContext<{
   ready: boolean;
   accountReady: boolean;
   isAdmin: boolean;
+  ordersReady: boolean;
+  ordersError: string;
+  refreshOrders: () => Promise<void>;
   books: Book[];
   booksReady: boolean;
   booksError: string;
@@ -76,13 +74,6 @@ const Context = createContext<{
   add: (slug: string, format: Format, qty?: number) => boolean;
   wish: (slug: string) => void;
   transition: (id: string, status: OrderStatus) => void;
-  place: (details: {
-    addressId: string;
-    courier: string;
-    method: string;
-    voucher: string;
-    note: string;
-  }) => string | null;
 } | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(blank);
@@ -126,6 +117,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setBooksReady(true);
   };
   const ref = useRef(state);
+  const [ordersReady, setOrdersReady] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const refreshOrders = useCallback(async () => {
+    const email = ref.current.session;
+    try {
+      const orders = await loadOrders();
+      if (ref.current.session !== email) return;
+      const next = { ...ref.current, orders };
+      ref.current = next;
+      setState(next);
+      setOrdersError("");
+    } catch {
+      if (ref.current.session === email)
+        setOrdersError("Pesanan tidak dapat dimuat. Coba muat ulang.");
+    } finally {
+      if (ref.current.session === email) setOrdersReady(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (state.session) void refreshOrders();
+  }, [state.session, refreshOrders]);
   const update: Update = (fn) => {
     const previous = ref.current;
     const next = fn(previous);
@@ -186,10 +198,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               { email, name: name || email.split("@")[0], phone: "" },
             ]
           : current.profiles;
-      const next = { ...current, profiles, session: email };
+      const next = {
+        ...current,
+        profiles,
+        session: email,
+        orders: current.session === email ? current.orders : [],
+      };
       ref.current = next;
       setState(next);
       if (current.session !== email || !email) {
+        setOrdersReady(false);
+        setOrdersError("");
         setAccountReady(!email);
         setIsAdmin(false);
       }
@@ -303,6 +322,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const transition = (id: string, status: OrderStatus) => {
     const current = ref.current.orders.find((o) => o.id === id);
     if (!current) return;
+    if (current.method === "COD") {
+      toast.error(
+        "Perubahan status pesanan COD belum tersedia pada tahap ini.",
+      );
+      return;
+    }
     const allowed: Record<OrderStatus, OrderStatus[]> = {
       "Menunggu pembayaran": [
         "Pembayaran gagal",
@@ -355,78 +380,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
     toast.success(`Pesanan: ${status}`);
   };
-  const place = (d: {
-    addressId: string;
-    courier: string;
-    method: string;
-    voucher: string;
-    note: string;
-  }) => {
-    const s = ref.current;
-    const bs = all(s);
-    const error = cartError(s.cart, bs);
-    if (error) {
-      toast.error(error);
-      return null;
-    }
-    const user = s.profiles.find((p) => p.email === s.session);
-    if (!user) {
-      toast.error("Masuk terlebih dahulu.");
-      return null;
-    }
-    const v = s.vouchers.find((v) => v.code === d.voucher);
-    const t = totals(s.cart, bs, v, d.courier);
-    const address = s.addresses.find(
-      (a) => a.id === d.addressId && a.email === s.session,
-    );
-    if (t.physical && !address) {
-      toast.error("Tambahkan alamat pengiriman.");
-      return null;
-    }
-    const id =
-      "FR-" +
-      Date.now().toString(36).toUpperCase() +
-      "-" +
-      Math.random().toString(36).slice(2, 6).toUpperCase();
-    const date = new Date().toISOString();
-    const order: Order = {
-      id,
-      email: user.email,
-      name: user.name,
-      date,
-      lines: s.cart.map((l) => {
-        const b = bs.find((b) => b.slug === l.slug)!;
-        return {
-          ...l,
-          title: b.title,
-          author: b.author,
-          cover: b.cover,
-          price: unit(b, l.format),
-          readable: b.readable,
-        };
-      }),
-      subtotal: t.subtotal,
-      discount: t.discount,
-      shipping: t.shipping,
-      total: t.total,
-      voucher: t.discount ? d.voucher : "",
-      courier: t.physical ? d.courier : "Digital",
-      method: d.method,
-      address: t.physical ? address : undefined,
-      status: "Menunggu pembayaran",
-      history: [{ status: "Menunggu pembayaran", date }],
-      note: d.note,
-    };
-    update((s) => {
-      const overrides = { ...s.overrides };
-      for (const l of s.cart.filter((l) => l.format === "fisik")) {
-        const b = bs.find((b) => b.slug === l.slug)!;
-        overrides[l.slug] = { ...b, stock: b.stock - l.qty };
-      }
-      return { ...s, cart: [], overrides, orders: [order, ...s.orders] };
-    });
-    return id;
-  };
   return (
     <Context.Provider
       value={{
@@ -434,6 +387,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ready,
         accountReady,
         isAdmin,
+        ordersReady,
+        ordersError,
+        refreshOrders,
         books,
         booksReady,
         booksError,
@@ -443,7 +399,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         add,
         wish,
         transition,
-        place,
       }}
     >
       {children}

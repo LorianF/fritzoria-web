@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "supabase:seed": "node scripts/generate-supabase-seed.mjs",
     "check:frontend": "tsc --project tsconfig.frontend.json --noEmit",
-    "test:store": "node --experimental-strip-types --test tests/store-logic.test.mjs tests/admin-books.test.mjs"
+    "test:store": "node --experimental-strip-types --test tests/store-logic.test.mjs tests/admin-books.test.mjs",
+    "test:checkout": "node --test tests/checkout-db.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

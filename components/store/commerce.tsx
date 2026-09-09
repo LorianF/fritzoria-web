@@ -1,25 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import {
-  ShoppingBag,
   ArrowRight,
   Check,
   MapPin,
-  Truck,
-  Package,
   Minus,
   Plus,
   Trash2,
-  Ticket,
   Printer,
   ArrowLeft,
   BookOpen,
 } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -38,9 +30,8 @@ import {
   Cover,
   Pick,
 } from "./shared";
-import { AddressEditor, Confirm } from "./account";
+import { Confirm } from "./account";
 import { money, unit, totals, cartError } from "@/lib/store/logic";
-import type { Order } from "@/lib/store/types";
 function Sum({
   subtotal,
   discount,
@@ -190,7 +181,7 @@ export function Cart() {
           <h2>Ringkasan belanja</h2>
           <Sum {...t} />
           <p className="muted small">
-            Estimasi ongkir reguler. Voucher diterapkan saat checkout.
+            Estimasi ongkir reguler. Checkout COD belum mendukung voucher.
           </p>
           {error ? (
             <Button disabled className="wide">
@@ -202,352 +193,34 @@ export function Cart() {
             </Go>
           )}
           <p className="notice">
-            Checkout demo tidak memindahkan uang dan tidak membuat pengiriman
-            nyata.
+            Pesanan COD disimpan ke akun Anda. Pembayaran dilakukan saat barang
+            diterima; pengiriman dikelola toko.
           </p>
         </aside>
       </div>
     </div>
   );
 }
-export function Checkout() {
-  const { state, books, place } = useStore();
-  const router = useRouter();
-  const [address, setAddress] = useState("");
-  const [editor, setEditor] = useState(false);
-  const [courier, setCourier] = useState("Reguler");
-  const [method, setMethod] = useState("Virtual account");
-  const [code, setCode] = useState("");
-  const [voucher, setVoucher] = useState("");
-  const [note, setNote] = useState("");
-  const [agree, setAgree] = useState(false);
-  const [step, setStep] = useState(1);
-  const lock = useRef(false);
-  const [busy, setBusy] = useState(false);
-  const profile = state.profiles.find((p) => p.email === state.session);
-  if (!profile)
-    return (
-      <div className="wrap">
-        <Blank
-          title="Masuk untuk melanjutkan"
-          text="Pesanan dan e-book akan disimpan ke akun demo di perangkat ini."
-          href="/masuk?next=/checkout"
-          cta="Masuk & lanjutkan"
-        />
-      </div>
-    );
-  if (!state.cart.length)
-    return (
-      <div className="wrap">
-        <Blank
-          title="Belum ada buku untuk dipesan"
-          text="Tambahkan buku ke keranjang terlebih dahulu."
-        />
-      </div>
-    );
-  const addresses = state.addresses.filter((a) => a.email === profile.email);
-  const chosen =
-    addresses.find((a) => a.id === address) ||
-    addresses.find((a) => a.primary) ||
-    addresses[0];
-  const v = state.vouchers.find((v) => v.code === voucher);
-  const t = totals(state.cart, books, v, courier);
-  const error = cartError(state.cart, books);
-  const submit = () => {
-    if (lock.current) return;
-    if (error) {
-      toast.error(error);
-      return;
-    }
-    if (t.physical && !chosen) {
-      toast.error("Tambahkan alamat pengiriman.");
-      return;
-    }
-    if (!agree) {
-      toast.error("Konfirmasi bahwa ini transaksi simulasi.");
-      return;
-    }
-    lock.current = true;
-    setBusy(true);
-    const id = place({
-      addressId: chosen?.id || "",
-      courier,
-      method,
-      voucher,
-      note,
-    });
-    if (id) router.push(`/pembayaran/${id}`);
-    else {
-      lock.current = false;
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="wrap">
-      <Crumbs
-        items={[
-          ["Keranjang", "/keranjang"],
-          ["Checkout", ""],
-        ]}
-      />
-      <PageHead title="Selesaikan pesananmu" eyebrow="CHECKOUT" />
-      <div className="steps">
-        <span className="complete">1. Keranjang</span>
-        <span className="current">2. Pengiriman & ringkasan</span>
-        <span>3. Pembayaran demo</span>
-      </div>
-      <div className="checkout-layout">
-        <div>
-          {step === 1 ? (
-            <>
-              <section className="panel">
-                <div className="section-head">
-                  <h2>
-                    <MapPin size={21} />{" "}
-                    {t.physical ? "Alamat pengiriman" : "Akses digital"}
-                  </h2>
-                  {t.physical && (
-                    <Button variant="outline" onClick={() => setEditor(true)}>
-                      <Plus size={16} /> Alamat
-                    </Button>
-                  )}
-                </div>
-                {t.physical ? (
-                  addresses.length ? (
-                    <RadioGroup value={chosen?.id} onValueChange={setAddress}>
-                      {addresses.map((a) => (
-                        <label
-                          className={`address-option ${chosen?.id === a.id ? "chosen" : ""}`}
-                          key={a.id}
-                        >
-                          <RadioGroupItem value={a.id} />
-                          <span>
-                            <strong>
-                              {a.label} · {a.name}
-                            </strong>
-                            <small>
-                              {a.phone}
-                              <br />
-                              {a.street}, {a.city}, {a.province} {a.postal}
-                            </small>
-                          </span>
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  ) : (
-                    <p className="muted">
-                      Tambahkan alamat contoh untuk melanjutkan.
-                    </p>
-                  )
-                ) : (
-                  <p>
-                    E-book masuk ke rak digital <strong>{profile.email}</strong>{" "}
-                    setelah pembayaran demo berhasil. Tidak memerlukan alamat
-                    atau kurir.
-                  </p>
-                )}
-              </section>
-              {t.physical && (
-                <section className="panel">
-                  <h2>
-                    <Truck size={21} /> Metode pengiriman
-                  </h2>
-                  <RadioGroup value={courier} onValueChange={setCourier}>
-                    {[
-                      ["Reguler", "2–5 hari kerja", "Rp18.000"],
-                      ["Ekspres", "1–2 hari kerja", "Rp30.000"],
-                    ].map(([value, desc, price]) => (
-                      <label className="shipping-option" key={value}>
-                        <RadioGroupItem value={value} />
-                        <span>
-                          <strong>{value}</strong>
-                          <small>{desc} · simulasi</small>
-                        </span>
-                        <strong>
-                          {t.subtotal - t.discount >= 250000 ? "Gratis" : price}
-                        </strong>
-                      </label>
-                    ))}
-                  </RadioGroup>
-                  <p className="muted small">
-                    Gratis ongkir mulai Rp250.000 setelah potongan voucher.
-                  </p>
-                </section>
-              )}
-              <section className="panel">
-                <h2>Metode pembayaran</h2>
-                <RadioGroup
-                  value={method}
-                  onValueChange={setMethod}
-                  className="payment-options"
-                >
-                  {["Virtual account", "QRIS", "E-wallet"].map((m) => (
-                    <label key={m} className={method === m ? "chosen" : ""}>
-                      <RadioGroupItem value={m} />
-                      {m}
-                    </label>
-                  ))}
-                </RadioGroup>
-                <p className="notice">
-                  Tidak ada nomor rekening atau QR pembayaran nyata. Hasil
-                  pembayaran dipilih pada langkah demo berikutnya.
-                </p>
-                <label>
-                  Catatan pesanan
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    maxLength={300}
-                    placeholder="Opsional, misalnya instruksi pengemasan"
-                  />
-                </label>
-              </section>
-              <Button
-                onClick={() => {
-                  if (t.physical && !chosen) {
-                    toast.error("Tambahkan alamat pengiriman.");
-                    return;
-                  }
-                  setStep(2);
-                  window.scrollTo(0, 0);
-                }}
-              >
-                Periksa pesanan <ArrowRight size={16} />
-              </Button>
-            </>
-          ) : (
-            <>
-              <section className="panel">
-                <h2>Periksa sebelum memesan</h2>
-                <p>
-                  <strong>Pembeli:</strong> {profile.name} · {profile.email}
-                </p>
-                {t.physical && (
-                  <p>
-                    <strong>Tujuan:</strong> {chosen?.street}, {chosen?.city} ·{" "}
-                    {courier}
-                  </p>
-                )}
-                <p>
-                  <strong>Pembayaran:</strong> {method} · simulasi
-                </p>
-                <div className="mini-lines">
-                  {state.cart.map((l) => {
-                    const b = books.find((b) => b.slug === l.slug)!;
-                    return (
-                      <div key={`${l.slug}-${l.format}`}>
-                        <Cover book={b} />
-                        <span>
-                          <strong>{b.title}</strong>
-                          <small>
-                            {l.qty} × {l.format} · {money(unit(b, l.format))}
-                          </small>
-                        </span>
-                        <b>{money(unit(b, l.format) * l.qty)}</b>
-                      </div>
-                    );
-                  })}
-                </div>
-                <label className="check-label">
-                  <Checkbox
-                    checked={agree}
-                    onCheckedChange={(v) => setAgree(v === true)}
-                  />{" "}
-                  Saya memahami ini simulasi transaksi, tanpa pembayaran atau
-                  pengiriman nyata.
-                </label>
-              </section>
-              <div className="button-row">
-                <Button variant="outline" onClick={() => setStep(1)}>
-                  Ubah pengiriman
-                </Button>
-                <Button disabled={busy || !agree || !!error} onClick={submit}>
-                  {busy ? "Membuat pesanan…" : "Buat pesanan demo"}
-                  <ArrowRight size={16} />
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-        <aside className="panel order-summary">
-          <h2>Ringkasan pesanan</h2>
-          <div className="voucher-field">
-            <label htmlFor="voucher">
-              <Ticket size={16} /> Punya kode voucher?
-            </label>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const found = state.vouchers.find(
-                  (v) => v.code === code.trim().toUpperCase() && v.active,
-                );
-                if (!found) {
-                  toast.error("Kode voucher tidak valid atau nonaktif.");
-                  setVoucher("");
-                  return;
-                }
-                if (t.subtotal < found.min) {
-                  toast.error(`Minimum belanja ${money(found.min)}.`);
-                  setVoucher("");
-                  return;
-                }
-                setVoucher(found.code);
-                toast.success("Voucher diterapkan.");
-              }}
-            >
-              <Input
-                id="voucher"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Contoh: BACA10"
-              />
-              <Button type="submit" variant="outline">
-                Pakai
-              </Button>
-            </form>
-            {voucher && (
-              <p className="text-link">
-                {voucher} {t.discount ? "aktif" : "belum memenuhi syarat"}{" "}
-                <button
-                  onClick={() => {
-                    setVoucher("");
-                    setCode("");
-                  }}
-                >
-                  Hapus
-                </button>
-              </p>
-            )}
-            <Link href="/promo" target="_blank" className="text-link">
-              Lihat syarat voucher ↗
-            </Link>
-          </div>
-          <Sum {...t} />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <p className="muted small">
-            Harga dikunci ketika pesanan dibuat. Stok fisik dicadangkan hingga
-            pembayaran atau pembatalan.
-          </p>
-        </aside>
-      </div>
-      <AddressEditor open={editor} onClose={() => setEditor(false)} />
-    </div>
-  );
-}
+export { Checkout } from "./checkout";
 export function Orders() {
-  const { state } = useStore();
+  const { state, ordersReady, ordersError, refreshOrders } = useStore();
   const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
+  if (state.session && !ordersReady)
+    return <p className="loading-state">Memuat pesanan…</p>;
+  if (state.session && ordersError)
+    return (
+      <div className="wrap">
+        <p role="alert">{ordersError}</p>
+        <Button onClick={() => void refreshOrders()}>Muat ulang</Button>
+      </div>
+    );
   if (!state.session)
     return (
       <div className="wrap">
         <Blank
           title="Masuk untuk melihat pesanan"
-          text="Pesanan tersimpan di akun demo pada browser ini."
+          text="Pesanan tersimpan di akun Anda dan dapat dilihat dari perangkat lain."
           href="/masuk?next=/pesanan"
           cta="Masuk"
         />
@@ -639,10 +312,56 @@ export function OrderDetail({
   payment?: boolean;
   invoice?: boolean;
 }) {
-  const { state, transition, update } = useStore();
+  const { state, transition, update, ordersReady, ordersError, refreshOrders } =
+    useStore();
   const [returnOpen, setReturnOpen] = useState(false);
   const [reason, setReason] = useState("");
   const o = state.orders.find((o) => o.id === id && o.email === state.session);
+  if (state.session && !ordersReady)
+    return <p className="loading-state">Memuat pesanan…</p>;
+  if (state.session && ordersError)
+    return (
+      <div className="wrap">
+        <p role="alert">{ordersError}</p>
+        <Button onClick={() => void refreshOrders()}>Muat ulang</Button>
+      </div>
+    );
+  if (o?.method === "COD")
+    return (
+      <div className="wrap">
+        <PageHead
+          title={o.id}
+          description="Pesanan tersimpan · Bayar di tempat (COD)"
+        />
+        <div className="panel">
+          <p>Status: {o.status}</p>
+          <p>Pembayaran belum diterima. Bayar saat barang diterima.</p>
+          {o.lines.map((l) => (
+            <p key={l.slug}>
+              {l.qty} × {l.title} — {money(l.price * l.qty)}
+            </p>
+          ))}
+          <Sum
+            subtotal={o.subtotal}
+            discount={o.discount}
+            shipping={o.shipping}
+            total={o.total}
+          />
+          <p>
+            {o.address?.name} · {o.address?.phone}
+          </p>
+          <p>
+            {o.address?.street}, {o.address?.city}, {o.address?.province}{" "}
+            {o.address?.postal}
+          </p>
+          <p>Pengiriman: {o.courier}</p>
+          {o.note && <p>Catatan: {o.note}</p>}
+          <Go href="/pesanan" outline>
+            Daftar pesanan
+          </Go>
+        </div>
+      </div>
+    );
   if (!state.session)
     return (
       <div className="wrap">

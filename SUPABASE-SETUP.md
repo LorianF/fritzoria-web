@@ -91,6 +91,32 @@ Editor buku tidak menerima kategori bebas. Jika kategori diubah admin lain saat 
 terbuka, gunakan Muat ulang kategori dan pilih kembali. Menu Kelola kategori membuka
 tab baru sehingga isian buku tetap tersedia di tab semula.
 
+## 8. Checkout COD ke database
+
+Jalankan `supabase/migrations/202609100001_checkout.sql` setelah migrasi sebelumnya.
+Migrasi menambahkan kunci idempotensi dan fungsi `create_cod_order`; tidak mengulang seed.
+Hanya pengguna login yang dapat memanggil fungsi. Pesanan dibuat dengan pembayaran COD
+dan status Menunggu pembayaran, bukan lunas. Tahap ini hanya mendukung buku fisik
+non-preorder, tanpa voucher atau payment gateway.
+
+Harga, ongkir (Reguler 18.000 / Ekspres 30.000, gratis mulai subtotal 250.000),
+kepemilikan alamat, dan stok diperiksa dalam satu transaksi database. Stok dicadangkan
+saat pesanan dibuat. Permintaan ulang dengan kunci sama mengembalikan nomor pesanan sama.
+Penolakan atau kegagalan transaksi tidak menyimpan sebagian pesanan.
+
+Uji setelah migrasi:
+
+1. Login pelanggan, pilih buku fisik, simpan alamat, dan buat pesanan COD.
+2. Pastikan `orders`, `order_items`, dan `order_status_history` terisi serta stok berkurang.
+3. Refresh atau login akun yang sama pada perangkat lain; cek Pesanan saya dan detailnya.
+4. Akun pelanggan lain tidak boleh melihat pesanan itu.
+5. Uji stok habis dan harga berubah: checkout harus ditolak tanpa potongan stok tambahan.
+
+Perubahan status, resi, pembatalan/pengembalian stok, dan konfirmasi pembayaran admin
+belum diimplementasikan untuk pesanan COD. Kontrol simulasi lama diblokir untuk COD.
+Gunakan data testing sampai operasional pesanan selesai. Untuk pemeriksaan database lokal,
+jalankan `npm run test:checkout` (PostgreSQL embedded/PGlite; tanpa akses project Supabase).
+
 ## Keamanan
 
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` boleh digunakan oleh browser karena akses data tetap dibatasi oleh RLS.
