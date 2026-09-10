@@ -20,6 +20,7 @@ import {
   syncRemoteUserState,
 } from "@/lib/supabase/user-state";
 const KEY = "fritzoria-store-v2";
+const CART_KEY = "fritzoria-cart-v1";
 const blank: State = {
   version: 2,
   profiles: [],
@@ -150,6 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       void getSupabaseBrowserClient().auth.signOut();
     try {
       localStorage.setItem(KEY, JSON.stringify(next));
+      localStorage.setItem(CART_KEY, JSON.stringify(next.cart));
     } catch {
       toast.error(
         "Penyimpanan perangkat penuh. Perubahan ini hanya tersimpan selama halaman terbuka.",
@@ -167,7 +169,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           Array.isArray(parsed.cart) &&
           Array.isArray(parsed.profiles)
         ) {
-          const next = { ...blank, ...parsed };
+          let cart = parsed.cart;
+          const savedCart = localStorage.getItem(CART_KEY);
+          if (savedCart) {
+            const candidate = JSON.parse(savedCart);
+            if (Array.isArray(candidate)) cart = candidate;
+          }
+          const next = { ...blank, ...parsed, cart };
           ref.current = next;
           setState(next);
         } else toast.info("Data lama tidak kompatibel. Sesi baru digunakan.");
@@ -181,6 +189,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         try {
           const n = JSON.parse(e.newValue);
           if (n.version === 2) {
+            const savedCart = localStorage.getItem(CART_KEY);
+            if (savedCart) {
+              const candidate = JSON.parse(savedCart);
+              if (Array.isArray(candidate)) n.cart = candidate;
+            }
             ref.current = n;
             setState(n);
           }

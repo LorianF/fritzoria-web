@@ -101,16 +101,19 @@ export function Blank({
   text,
   href = "/katalog",
   cta = "Jelajahi buku",
+  pageTitle = false,
 }: {
   title: string;
   text: string;
   href?: string;
   cta?: string;
+  pageTitle?: boolean;
 }) {
+  const Heading = pageTitle ? "h1" : "h2";
   return (
     <Empty className="blank">
       <BookOpen size={32} />
-      <h2>{title}</h2>
+      <Heading>{title}</Heading>
       <p>{text}</p>
       <Go href={href}>
         {cta}
@@ -406,7 +409,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </button>
             </form>
             {focused && matches.length > 0 && (
-              <div className="search-results">
+              <div className="search-results" onMouseDown={(e) => e.preventDefault()}>
                 {matches.map((b) => (
                   <Link
                     key={b.slug}

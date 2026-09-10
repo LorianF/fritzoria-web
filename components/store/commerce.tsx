@@ -75,6 +75,7 @@ export function Cart() {
         <Blank
           title="Keranjangmu masih kosong"
           text="Ada banyak cerita menunggu. Pilih buku yang ingin kamu bawa pulang."
+          pageTitle
         />
       </div>
     );
@@ -207,7 +208,7 @@ export function Orders() {
   const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   if (state.session && !ordersReady)
-    return <p className="loading-state">Memuat pesanan…</p>;
+    return <div className="loading-state" role="status"><h1>Pesanan saya</h1><p>Memuat pesanan…</p></div>;
   if (state.session && ordersError)
     return (
       <div className="wrap">
