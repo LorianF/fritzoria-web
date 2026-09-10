@@ -2,6 +2,8 @@ import type { Order, Address, Line } from "../store/types";
 import { getSupabaseBrowserClient } from "./client";
 
 type Row = {
+  profiles: { email: string; name: string };
+  return_reason: string;
   order_number: string;
   created_at: string;
   subtotal: number;
@@ -34,7 +36,7 @@ type Row = {
   }[];
   order_status_history: { status: string; created_at: string }[];
 };
-export async function loadOrders(): Promise<Order[]> {
+export async function loadOrders(admin = false): Promise<Order[]> {
   const db = getSupabaseBrowserClient();
   const {
     data: { user },
@@ -42,18 +44,19 @@ export async function loadOrders(): Promise<Order[]> {
   } = await db.auth.getUser();
   if (authError) throw authError;
   if (!user?.email) return [];
-  const { data, error } = await db
+  let query = db
     .from("orders")
-    .select("*,order_items(*),order_status_history(*)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .select("*,profiles!orders_user_id_fkey(email,name),order_items(*),order_status_history(*)");
+  // RLS remains authoritative even if a caller passes admin=true.
+  if (!admin) query = query.eq("user_id", user.id);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return (data as Row[]).map((r) => {
     const a = r.address_snapshot;
     const address: Address | undefined = a
       ? {
           id: a.id,
-          email: user.email!,
+          email: r.profiles.email,
           label: a.label,
           name: a.recipient_name,
           phone: a.phone,
@@ -66,8 +69,8 @@ export async function loadOrders(): Promise<Order[]> {
       : undefined;
     return {
       id: r.order_number,
-      email: user.email!,
-      name: String(user.user_metadata?.name || user.email),
+      email: r.profiles.email,
+      name: r.profiles.name || r.profiles.email,
       date: r.created_at,
       lines: r.order_items.map((l) => ({
         slug: l.slug,
@@ -91,8 +94,17 @@ export async function loadOrders(): Promise<Order[]> {
         .sort((a, b) => a.date.localeCompare(b.date)),
       note: r.customer_note,
       voucher: "",
+      returnReason: r.return_reason || undefined,
     };
   });
+}
+export async function transitionCodOrder(id: string, expected: Order["status"], status: Order["status"], reason = "") {
+  const { error } = await getSupabaseBrowserClient().rpc("transition_cod_order", {
+    p_number: id, p_expected: expected, p_status: status, p_reason: reason,
+  });
+  if (error) throw new Error(error.code === "PGRST202"
+    ? "Pengelolaan COD belum diaktifkan. Jalankan migrasi QA di Supabase."
+    : error.message);
 }
 export async function createOrder(input: {
   key: string;

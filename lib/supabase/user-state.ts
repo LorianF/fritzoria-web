@@ -17,7 +17,7 @@ export async function loadRemoteUserState(){
 
   const [profileResult,addressResult,wishlistResult]=await Promise.all([
     supabase.from('profiles').select('id,email,name,phone,role').eq('id',user.id).single(),
-    supabase.from('addresses').select('id,label,recipient_name,phone,city,province,postal_code,street,is_primary').order('created_at'),
+    supabase.from('addresses').select('id,label,recipient_name,phone,city,province,postal_code,street,is_primary').eq('user_id',user.id).order('created_at'),
     supabase.from('wishlists').select('book_id'),
   ]);
   if(profileResult.error)throw profileResult.error;

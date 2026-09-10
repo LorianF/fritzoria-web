@@ -262,10 +262,10 @@ export function Card({
       <Button
         variant="outline"
         className="card-add"
-        disabled={!ebook && !book.stock}
+        disabled={ebook || book.preorder || !book.stock}
         onClick={() => add(book.slug, format)}
       >
-        {!ebook && book.stock === 0 ? "Stok habis" : "Tambah ke keranjang"}
+        {ebook ? "Pembelian e-book belum tersedia" : book.preorder ? "Preorder belum tersedia" : book.stock === 0 ? "Stok habis" : "Tambah ke keranjang"}
       </Button>
     </article>
   );
@@ -441,7 +441,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <Heart />
               <span className="count">{state.wish.length || ""}</span>
             </Link>
-            <Link href={profile ? "/akun" : "/masuk?next=/akun"} className="account-button">
+            <Link href={profile ? "/akun" : "/masuk?next=/akun"} className="account-button" aria-label={profile ? "Akun saya" : "Masuk atau daftar"}>
               <UserRound />
               <span>
                 {profile ? profile.name.split(" ")[0] : "Masuk"}
@@ -449,7 +449,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             </Link>
             {isAdmin && (
-              <Link href="/admin" className="account-button">
+              <Link href="/admin" className="account-button" aria-label="Studio admin">
                 <ShieldCheck />
                 <span>
                   Studio
@@ -485,8 +485,8 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
       </header>
       <div className="demo-line">
-        Mode demo · Harga, stok, pembayaran, dan pesanan disimulasikan di
-        perangkat ini. <Link href="/tentang">Pelajari</Link>
+        Checkout buku fisik dengan COD · Pesanan tersimpan di akun.
+        E-book dan voucher belum dapat dibeli/digunakan. <Link href="/tentang">Pelajari</Link>
       </div>
       <main id="main" tabIndex={-1}>
         {ready ? (

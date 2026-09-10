@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, useRef, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -48,7 +48,8 @@ import { useStore } from "./provider";
 import { Button, Input, Go, Cover, PageHead, Pick } from "./shared";
 import { Confirm } from "./account";
 import { money, slugify, isPaid, validISBN } from "@/lib/store/logic";
-import type { Book } from "@/lib/store/types";
+import type { Book, Profile } from "@/lib/store/types";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   saveBook,
   setBookHidden,
@@ -101,8 +102,26 @@ export function Admin({ section = "" }: { section?: string }) {
     acceptBooks,
     update,
     transition,
+    ordersReady,
+    ordersError,
+    refreshOrders,
   } = useStore();
   const [query, setQuery] = useState("");
+  const [customers, setCustomers] = useState<Profile[]>([]);
+  const [customersError, setCustomersError] = useState("");
+  const [customersReady, setCustomersReady] = useState(false);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    getSupabaseBrowserClient().from("profiles").select("email,name,phone").order("created_at")
+      .then(({data,error}) => {
+        if (!active) return;
+        if (error) setCustomersError("Pelanggan tidak dapat dimuat. Muat ulang halaman.");
+        else { setCustomers(data || []); setCustomersError(""); }
+        setCustomersReady(true);
+      });
+    return () => { active = false; };
+  }, [isAdmin]);
   const [editing, setEditing] = useState<Book | null | undefined>(undefined);
   const [order, setOrder] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
@@ -217,6 +236,9 @@ export function Admin({ section = "" }: { section?: string }) {
             title={titles}
             description="Kelola katalog dan operasional Fritzoria."
           />
+          {["", "pesanan", "pelanggan"].includes(section) && (!ordersReady || ordersError) && <p className="notice" role="status">{ordersError || "Memuat pesanan…"} {ordersError && <Button onClick={() => void refreshOrders()}>Coba lagi</Button>}</p>}
+          {["", "pelanggan"].includes(section) && (!customersReady || customersError) && <p className="notice" role="status">{customersError || "Memuat pelanggan…"}</p>}
+          {["promo", "ulasan", "bantuan"].includes(section) && <p className="notice">Fitur lokal: data pada bagian ini hanya tersimpan di browser ini, tidak tersinkron lintas perangkat. Voucher tidak berlaku pada checkout COD; tiket tidak dikirim ke layanan pelanggan.</p>}
           {section === "" && (
             <>
               <div className="stat-grid four">
@@ -224,19 +246,19 @@ export function Admin({ section = "" }: { section?: string }) {
                   <strong>
                     {money(paid.reduce((n, o) => n + o.total, 0))}
                   </strong>
-                  <span>Total pembayaran demo</span>
+                  <span>COD terkonfirmasi, di luar retur diterima</span>
                 </div>
                 <div>
-                  <strong>{state.orders.length}</strong>
-                  <span>Pesanan lokal</span>
+                  <strong>{ordersReady && !ordersError ? state.orders.length : "—"}</strong>
+                  <span>Pesanan akun pelanggan</span>
                 </div>
                 <div>
                   <strong>{books.filter((b) => !b.hidden).length}</strong>
                   <span>Buku aktif</span>
                 </div>
                 <div>
-                  <strong>{state.profiles.length}</strong>
-                  <span>Pelanggan lokal</span>
+                  <strong>{customersReady && !customersError ? customers.length : "—"}</strong>
+                  <span>Akun terdaftar</span>
                 </div>
               </div>
               <div className="admin-columns">
@@ -567,13 +589,13 @@ export function Admin({ section = "" }: { section?: string }) {
                   ))}
               </DataTable>
               {!state.orders.length && (
-                <p className="empty-table">Belum ada pesanan lokal.</p>
+                <p className="empty-table">{ordersReady && !ordersError ? "Belum ada pesanan." : "Menunggu data pesanan dari server."}</p>
               )}
             </>
           )}
           {section === "pelanggan" && (
-            <DataTable heads={["Nama", "Email", "Pesanan", "Pembayaran demo"]}>
-              {state.profiles.map((p) => (
+            <DataTable heads={["Nama", "Email", "Pesanan", "Pembayaran terkonfirmasi"]}>
+              {customers.map((p) => (
                 <TableRow key={p.email}>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.email}</TableCell>
@@ -785,7 +807,7 @@ export function Admin({ section = "" }: { section?: string }) {
           <DialogHeader>
             <DialogTitle>{currentOrder?.id}</DialogTitle>
             <DialogDescription>
-              Kelola pemenuhan pesanan demo.
+              Kelola pesanan COD. Perubahan tersimpan di server.
             </DialogDescription>
           </DialogHeader>
           {currentOrder && (
@@ -813,6 +835,9 @@ export function Admin({ section = "" }: { section?: string }) {
                 <p className="notice">Retur: {currentOrder.returnReason}</p>
               )}
               <div className="button-row">
+                {currentOrder.method === "COD" && currentOrder.status === "Menunggu pembayaran" && (
+                  <Button onClick={() => void transition(currentOrder.id, "Diproses")}>Proses pesanan COD</Button>
+                )}
                 {currentOrder.status === "Diproses" && (
                   <Button
                     onClick={() => transition(currentOrder.id, "Dikirim")}
@@ -824,14 +849,14 @@ export function Admin({ section = "" }: { section?: string }) {
                   <Button
                     onClick={() => transition(currentOrder.id, "Selesai")}
                   >
-                    Tandai diterima
+                    Konfirmasi diterima & COD dibayar
                   </Button>
                 )}
                 {currentOrder.status === "Retur diajukan" && (
                   <>
                     <Confirm
-                      title="Terima retur dan kembalikan dana demo?"
-                      text="Seluruh nilai pesanan demo dikembalikan. Stok buku fisik akan bertambah dan akses e-book pesanan ini dicabut."
+                      title="Barang retur sudah diterima?"
+                      text="Stok akan dikembalikan. Pengembalian dana harus ditangani toko secara terpisah; tindakan ini tidak mentransfer uang."
                       action={() => transition(currentOrder.id, "Dikembalikan")}
                     >
                       <Button>Setujui retur</Button>
@@ -844,7 +869,7 @@ export function Admin({ section = "" }: { section?: string }) {
                     </Button>
                   </>
                 )}
-                {["Menunggu pembayaran", "Pembayaran gagal"].includes(
+                {["Menunggu pembayaran", "Pembayaran gagal", "Diproses"].includes(
                   currentOrder.status,
                 ) && (
                   <Confirm

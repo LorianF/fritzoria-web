@@ -416,6 +416,7 @@ export function Account({ section = "ringkasan" }: { section?: string }) {
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Masuk ke akun Anda"
           text="Masuk untuk menyimpan profil, alamat, dan pesanan di akunmu."
           href="/masuk"

@@ -13,7 +13,7 @@ import initial from "@/lib/store/catalog.json";
 import type { State, Book, Format, OrderStatus } from "@/lib/store/types";
 import { available } from "@/lib/store/logic";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { loadOrders } from "@/lib/supabase/orders";
+import { loadOrders, transitionCodOrder } from "@/lib/supabase/orders";
 import { fromDatabaseBook, type DatabaseBook } from "@/lib/supabase/books";
 import {
   loadRemoteUserState,
@@ -74,7 +74,7 @@ const Context = createContext<{
   update: Update;
   add: (slug: string, format: Format, qty?: number) => boolean;
   wish: (slug: string) => void;
-  transition: (id: string, status: OrderStatus) => void;
+  transition: (id: string, status: OrderStatus, reason?: string) => Promise<boolean>;
 } | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(blank);
@@ -120,25 +120,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const ref = useRef(state);
   const [ordersReady, setOrdersReady] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const ordersRequest = useRef(0);
   const refreshOrders = useCallback(async () => {
+    const request = ++ordersRequest.current;
     const email = ref.current.session;
     try {
-      const orders = await loadOrders();
-      if (ref.current.session !== email) return;
+      const orders = await loadOrders(isAdmin);
+      if (ref.current.session !== email || request !== ordersRequest.current) return;
       const next = { ...ref.current, orders };
       ref.current = next;
       setState(next);
       setOrdersError("");
     } catch {
-      if (ref.current.session === email)
+      if (ref.current.session === email && request === ordersRequest.current)
         setOrdersError("Pesanan tidak dapat dimuat. Coba muat ulang.");
     } finally {
-      if (ref.current.session === email) setOrdersReady(true);
+      if (ref.current.session === email && request === ordersRequest.current) setOrdersReady(true);
     }
-  }, []);
+  }, [isAdmin]);
   useEffect(() => {
-    if (state.session) void refreshOrders();
-  }, [state.session, refreshOrders]);
+    if (state.session && accountReady) void refreshOrders();
+  }, [state.session, accountReady, refreshOrders]);
   const update: Update = (fn) => {
     const previous = ref.current;
     const next = fn(previous);
@@ -295,13 +297,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const add = (slug: string, format: Format, qty = 1) => {
     const s = ref.current;
     const b = all(s).find((b) => b.slug === slug && !b.hidden);
+    if (format === "ebook" || b?.preorder) {
+      toast.info("Pembelian e-book dan preorder belum tersedia. Pilih buku fisik yang tersedia.");
+      return false;
+    }
     if (!b || !available(b, format)) {
       toast.error("Format ini sedang tidak tersedia.");
       return false;
     }
     const existing = s.cart.find((l) => l.slug === slug && l.format === format);
     if (format === "fisik" && (existing?.qty || 0) + qty > b.stock) {
-      toast.error(`Tersisa ${b.stock} buku dalam stok simulasi.`);
+      toast.error(`Tersisa ${b.stock} buku dalam stok.`);
       return false;
     }
     update((s) => ({
@@ -309,10 +315,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cart: existing
         ? s.cart.map((l) =>
             l.slug === slug && l.format === format
-              ? { ...l, qty: format === "ebook" ? 1 : l.qty + qty }
+              ? { ...l, qty: l.qty + qty }
               : l,
           )
-        : [...s.cart, { slug, format, qty: format === "ebook" ? 1 : qty }],
+        : [...s.cart, { slug, format, qty }],
     }));
     toast.success(`${b.title} masuk keranjang`, {
       action: {
@@ -332,14 +338,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saved ? "Buku dihapus dari wishlist" : "Buku disimpan ke wishlist",
     );
   };
-  const transition = (id: string, status: OrderStatus) => {
+  const transitionLocks = useRef(new Set<string>());
+  const transition = async (id: string, status: OrderStatus, reason = ""): Promise<boolean> => {
     const current = ref.current.orders.find((o) => o.id === id);
-    if (!current) return;
+    if (!current || transitionLocks.current.has(id)) return false;
     if (current.method === "COD") {
-      toast.error(
-        "Perubahan status pesanan COD belum tersedia pada tahap ini.",
-      );
-      return;
+      transitionLocks.current.add(id);
+      try {
+        await transitionCodOrder(id, current.status, status, reason);
+        await Promise.all([refreshOrders(), refreshBooks()]);
+        toast.success(`Pesanan: ${status}`);
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Status gagal disimpan. Muat ulang sebelum mencoba lagi.");
+        await refreshOrders();
+        return false;
+      } finally { transitionLocks.current.delete(id); }
     }
     const allowed: Record<OrderStatus, OrderStatus[]> = {
       "Menunggu pembayaran": [
@@ -358,14 +372,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     if (!allowed[current.status].includes(status)) {
       toast.error("Perubahan status tidak valid.");
-      return;
+      return false;
     }
     if (
       status === "Selesai" &&
       current.status === "Menunggu pembayaran" &&
       current.lines.some((l) => l.format === "fisik")
     )
-      return;
+      return false;
     update((s) => {
       const overrides = { ...s.overrides };
       if (status === "Dibatalkan" || status === "Dikembalikan") {
@@ -392,6 +406,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
     });
     toast.success(`Pesanan: ${status}`);
+    return true;
   };
   return (
     <Context.Provider

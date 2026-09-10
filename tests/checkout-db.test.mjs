@@ -22,6 +22,7 @@ test('checkout PostgreSQL transaction, ownership and retry behavior', async t =>
     await db.exec(await readFile(new URL('../supabase/migrations/202609090002_admin_books.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../supabase/migrations/202609090003_categories.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../supabase/migrations/202609100001_checkout.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../supabase/migrations/202609110001_qa_cod.sql', import.meta.url), 'utf8'));
     await db.query('insert into auth.users(id,email) values ($1,$2),($3,$4)', [user,'buyer@example.test',other,'other@example.test']);
     await db.query(`insert into public.addresses(id,user_id,label,recipient_name,phone,city,province,postal_code,street) values ($1,$2,'Rumah','Buyer','08123456789','Jakarta','Jakarta','12345','Jalan Uji')`, [address,user]);
     await db.exec(`insert into public.categories(name) values ('Fiksi');
@@ -59,6 +60,52 @@ test('checkout PostgreSQL transaction, ownership and retry behavior', async t =>
       assert.equal((await db.query('select * from orders')).rows.length,0);
       assert.equal((await db.query('select * from order_items')).rows.length,0);
       await assert.rejects(db.query("update orders set status='Selesai'"), /permission denied/);
+    });
+    const admin = '00000000-0000-4000-8000-000000000005';
+    await db.exec('reset role');
+    await db.query('insert into auth.users(id,email) values ($1,$2)',[admin,'admin@example.test']);
+    await db.query("update profiles set role='admin' where id=$1",[admin]);
+    const number = (await db.query('select order_number from orders')).rows[0].order_number;
+    const change = (from,to,reason='',id=number) => db.query('select transition_cod_order($1,$2,$3,$4)',[id,from,to,reason]);
+    const asUser = id => db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);
+    await db.exec('set role authenticated');
+    await t.test('other customer cannot transition an order; owner cannot ship or skip statuses', async () => {
+      await asUser(other);
+      await assert.rejects(change('Menunggu pembayaran','Dibatalkan'),/akses ditolak/);
+      await asUser(user);
+      await assert.rejects(change('Menunggu pembayaran','Dikirim'),/tidak diizinkan/);
+      await assert.rejects(change('Menunggu pembayaran','Selesai'),/tidak diizinkan/);
+    });
+    await t.test('admin sees customer ownership and processes COD without online payment', async () => {
+      await asUser(admin);
+      const rows = (await db.query('select o.user_id,p.email from orders o join profiles p on p.id=o.user_id')).rows;
+      assert.equal(rows.length,1); assert.equal(rows[0].email,'buyer@example.test');
+      await change('Menunggu pembayaran','Diproses');
+      await assert.rejects(change('Menunggu pembayaran','Dikirim'),/Status sudah berubah/);
+      await change('Diproses','Dikirim');
+      await change('Diproses','Dikirim'); // retry must not duplicate history
+      assert.equal((await db.query("select count(*)::int as n from order_status_history where status='Dikirim'")).rows[0].n,1);
+    });
+    await t.test('owner confirms delivery, submits validated return; only admin can restock', async () => {
+      await asUser(user); await change('Dikirim','Selesai');
+      await assert.rejects(change('Selesai','Retur diajukan','short'),/10–1000/);
+      await change('Selesai','Retur diajukan','Buku rusak saat diterima');
+      assert.equal((await db.query('select return_reason from orders')).rows[0].return_reason,'Buku rusak saat diterima');
+      await assert.rejects(change('Retur diajukan','Dikembalikan'),/tidak diizinkan/);
+      await asUser(admin); await change('Retur diajukan','Dikembalikan');
+      await change('Retur diajukan','Dikembalikan');
+      assert.equal((await db.query('select stock from books')).rows[0].stock,5);
+      assert.equal((await db.query("select count(*)::int as n from order_status_history where status='Dikembalikan'")).rows[0].n,1);
+      await assert.rejects(change('Dikembalikan','Diproses'),/tidak diizinkan/);
+    });
+    await t.test('owner cancellation restocks once and free shipping applies above threshold', async () => {
+      await asUser(user);
+      const newKey='00000000-0000-4000-8000-000000000006';
+      const id=(await call({key:newKey,lines:[{slug:'uji',format:'fisik',qty:3}],total:300000})).rows[0].number;
+      assert.equal((await db.query('select shipping from orders where order_number=$1',[id])).rows[0].shipping,0);
+      await change('Menunggu pembayaran','Dibatalkan','',id);
+      await change('Menunggu pembayaran','Dibatalkan','',id);
+      assert.equal((await db.query('select stock from books')).rows[0].stock,5);
     });
   } finally { await db.close(); }
 });

@@ -22,7 +22,8 @@ if (process.env.VERCEL === "1") {
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Resolve product existence/metadata before streaming so missing slugs return 404.
+  htmlLimitedBots: /.*/,
 };
 
 export default nextConfig;

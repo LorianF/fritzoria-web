@@ -29,7 +29,7 @@ export function fromDatabaseBook(book: DatabaseBook): Book {
   return {
     slug: book.slug,
     title: book.title,
-    author: book.author,
+    author: book.author.trim().replace(/\s+/g, " "),
     category: book.category,
     language: book.language,
     isbn: book.isbn || undefined,

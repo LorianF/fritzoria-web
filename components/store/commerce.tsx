@@ -31,6 +31,7 @@ import {
   Pick,
 } from "./shared";
 import { Confirm } from "./account";
+import { CodOrder } from "./cod-order";
 import { money, unit, totals, cartError } from "@/lib/store/logic";
 function Sum({
   subtotal,
@@ -65,7 +66,9 @@ function Sum({
   );
 }
 export function Cart() {
-  const { state, books, update } = useStore();
+  const { state, books, update, booksReady, booksError, refreshBooks } = useStore();
+  if (!booksReady) return <div className="wrap loading-state"><h1>Keranjang belanja</h1><p>Memuat katalog…</p></div>;
+  if (booksError) return <div className="wrap"><h1>Keranjang belanja</h1><p role="alert">{booksError}</p><Button onClick={() => void refreshBooks()}>Coba lagi</Button></div>;
   const t = totals(state.cart, books, undefined, "Reguler");
   const error = cartError(state.cart, books);
   if (!state.cart.length)
@@ -220,6 +223,7 @@ export function Orders() {
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Masuk untuk melihat pesanan"
           text="Pesanan tersimpan di akun Anda dan dapat dilihat dari perangkat lain."
           href="/masuk?next=/pesanan"
@@ -327,46 +331,12 @@ export function OrderDetail({
         <Button onClick={() => void refreshOrders()}>Muat ulang</Button>
       </div>
     );
-  if (o?.method === "COD")
-    return (
-      <div className="wrap">
-        <PageHead
-          title={o.id}
-          description="Pesanan tersimpan · Bayar di tempat (COD)"
-        />
-        <div className="panel">
-          <p>Status: {o.status}</p>
-          <p>Pembayaran belum diterima. Bayar saat barang diterima.</p>
-          {o.lines.map((l) => (
-            <p key={l.slug}>
-              {l.qty} × {l.title} — {money(l.price * l.qty)}
-            </p>
-          ))}
-          <Sum
-            subtotal={o.subtotal}
-            discount={o.discount}
-            shipping={o.shipping}
-            total={o.total}
-          />
-          <p>
-            {o.address?.name} · {o.address?.phone}
-          </p>
-          <p>
-            {o.address?.street}, {o.address?.city}, {o.address?.province}{" "}
-            {o.address?.postal}
-          </p>
-          <p>Pengiriman: {o.courier}</p>
-          {o.note && <p>Catatan: {o.note}</p>}
-          <Go href="/pesanan" outline>
-            Daftar pesanan
-          </Go>
-        </div>
-      </div>
-    );
+  if (o?.method === "COD") return <CodOrder order={o} />;
   if (!state.session)
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Masuk untuk melihat pesanan"
           text="Gunakan akun yang membuat pesanan ini."
           href={`/masuk?next=/pesanan/${id}`}
@@ -378,6 +348,7 @@ export function OrderDetail({
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Pesanan tidak ditemukan"
           text="Periksa nomor pesanan atau akun yang sedang digunakan."
           href="/pesanan"

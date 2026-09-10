@@ -16,7 +16,7 @@ export function cartError(lines:Line[],books:Book[]) {
  for(const l of lines){const b=books.find(b=>b.slug===l.slug&&!b.hidden);if(!b)return 'Ada buku yang sudah tidak tersedia. Hapus dari keranjang.';if(!Number.isInteger(l.qty)||l.qty<1)return 'Jumlah buku tidak valid.';if(!available(b,l.format)|| (l.format==='fisik'&&l.qty>b.stock))return `Stok ${b.title} tidak mencukupi.`;if(l.format==='ebook'&&l.qty!==1)return 'E-book hanya dapat dibeli satu salinan.';}
  return '';
 }
-export const isPaid = (o:Order) => ['Diproses','Dikirim','Selesai','Retur diajukan'].includes(o.status);
+export const isPaid = (o:Order) => (o.method==='COD' ? ['Selesai','Retur diajukan'] : ['Diproses','Dikirim','Selesai','Retur diajukan']).includes(o.status);
 export function ratingFor(slug:string,reviews:{slug:string;rating:number;hidden?:boolean}[]){const rs=reviews.filter(r=>r.slug===slug&&!r.hidden);return {count:rs.length,rating:rs.length?rs.reduce((n,r)=>n+r.rating,0)/rs.length:0};}
 
 // Browser-local identifiers; does not require a secure context.

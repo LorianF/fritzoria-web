@@ -48,6 +48,7 @@ export function Checkout() {
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Masuk untuk melanjutkan"
           text="Pesanan akan tersimpan di akun Anda."
           href="/masuk?next=/checkout"
@@ -72,6 +73,7 @@ export function Checkout() {
     return (
       <div className="wrap">
         <Blank
+          pageTitle
           title="Keranjang kosong"
           text="Pilih buku sebelum membuat pesanan."
         />

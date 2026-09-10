@@ -1,7 +1,9 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import Storefront from '@/components/store/storefront';
-import catalog from '@/lib/store/catalog.json';
+import {loadPublicBook} from '@/lib/supabase/public-book';
+
+export const dynamic = 'force-dynamic';
 
 type Props={params:Promise<{path:string[]}>};
 const singles=['katalog','wishlist','penulis','keranjang','checkout','pesanan','akun','masuk','daftar','lupa-sandi','rak-digital','promo','bantuan','kontak','sumber','tentang','pengiriman','pembayaran','pengembalian','privasi','syarat','admin'];
@@ -14,9 +16,10 @@ function decodeSegment(value=''){try{return decodeURIComponent(value);}catch{ret
 export async function generateMetadata({params}:Props):Promise<Metadata>{
   const {path}=await params;
   const id=decodeSegment(path[1]);
-  const book=path[0]==='buku'?catalog.find(b=>b.slug===id):undefined;
+  const book=path[0]==='buku'?await loadPublicBook(id):undefined;
+  if(!valid(path)||(path[0]==='buku'&&!book))return {title:'Halaman tidak ditemukan | Fritzoria',robots:{index:false,follow:false}};
   const title=book?`${book.title} — ${book.author}`:path[0]==='penulis'&&id?`${id} — Penulis`:pageTitles[path[0]]||'Fritzoria';
   return {title:`${title} | Fritzoria`,description:book?.summary||'Jelajahi buku fisik dan e-book di Fritzoria.'};
 }
 
-export default async function Page({params}:Props){const {path}=await params;if(!valid(path))notFound();return <Storefront path={path}/>;}
+export default async function Page({params}:Props){const {path}=await params;if(!valid(path))notFound();if(path[0]==='buku'&&!await loadPublicBook(decodeSegment(path[1])))notFound();return <Storefront path={path}/>;}

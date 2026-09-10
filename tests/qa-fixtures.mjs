@@ -1,0 +1,4 @@
+import fs from 'node:fs';
+const catalog=JSON.parse(fs.readFileSync(new URL('../lib/store/catalog.json',import.meta.url),'utf8'));
+export const books=catalog.map((b,i)=>({id:`00000000-0000-4000-8000-${String(i+100).padStart(12,'0')}`,slug:b.slug,title:b.title,author:b.author,category:b.category,language:b.language,isbn:b.isbn,publisher:b.publisher,pages:b.pages,publication_year:b.year,cover_url:b.cover,source_url:b.source,summary:b.summary,physical_price:b.price,original_price:b.originalPrice,stock:b.stock,ebook_price:b.ebookPrice??null,reader_path:null,featured:b.featured??false,hidden:false,preorder:false,created_at:'2026-09-10T00:00:00Z'}));
+export const user={id:'00000000-0000-4000-8000-000000000001',email:'admin@example.test',aud:'authenticated',role:'authenticated',user_metadata:{name:'QA Admin'},app_metadata:{provider:'email'},created_at:'2026-01-01T00:00:00Z'};

@@ -1,22 +1,176 @@
 'use client';
 import Link from 'next/link';
-import {useState} from 'react';
-import {toast} from 'sonner';
-import {ArrowRight,Ticket,MessageSquare,BookOpen} from 'lucide-react';
-import {Accordion,AccordionItem,AccordionTrigger,AccordionContent} from '@/components/ui/accordion';
-import {useStore} from './provider';
-import {Button,Input,Go,Grid,PageHead,Crumbs,Pick} from './shared';
-const content:Record<string,{title:string;lead:string;sections:[string,string][]}>={
- tentang:{title:'Tentang Fritzoria',lead:'Sebuah tempat untuk menemukan bacaan berikutnya.',sections:[['Buku untuk setiap pembaca','Fritzoria mempertemukan novel, sastra, buku anak, manga, bisnis, agama, dan teknologi. Identitas visualnya sederhana: navy dan putih, dengan sampul serta cerita buku sebagai pusat perhatian.'],['Tahap pengembangan','Website ini merupakan frontend demonstrasi. Katalog memakai buku nyata, sementara harga jual, stok, ongkir, voucher, akun, serta transaksi disimulasikan. Belum ada penjualan, pembayaran, kerja sama penerbit, maupun pengiriman yang benar-benar dilakukan.'],['Data di perangkatmu','Keranjang, wishlist, profil, alamat, pesanan, dan pengaturan admin disimpan dalam browser ini. Muat ulang halaman tidak menghapusnya, tetapi menghapus data situs atau berpindah browser dapat menghilangkan akses. Akun dan admin demo belum dilindungi autentikasi server.'],['Bacaan digital','E-book komersial ditampilkan sebagai akses simulasi tanpa menyertakan naskah berhak cipta. Pride and Prejudice dari Project Gutenberg tersedia sebagai bacaan klasik gratis untuk mencoba seluruh fitur reader.']]},
- pengiriman:{title:'Informasi pengiriman',lead:'Periksa pilihan pengiriman sebelum menyelesaikan pesanan.',sections:[['Buku fisik','Pengiriman reguler dalam demo dikenakan Rp18.000 dengan estimasi 2–5 hari kerja. Ekspres Rp30.000 dengan estimasi 1–2 hari kerja. Angka tersebut adalah skenario pengujian, bukan tarif atau janji layanan kurir.'],['Gratis ongkir','Ongkir menjadi nol apabila subtotal buku setelah potongan voucher mencapai Rp250.000. Keranjang campuran menghitung ongkir hanya satu kali; e-book tidak menambah biaya pengiriman.'],['Alamat dan pelacakan','Alamat dapat ditambah atau diperbarui melalui akun. Setelah checkout, salinan alamat dikunci pada pesanan. Perubahan alamat profil tidak mengubah pesanan lama. Status pengiriman berjalan melalui tindakan admin demo dan konfirmasi penerimaan pembeli.'],['Preorder','Label preorder hanya aktif jika pengelola menyalakannya pada produk. Estimasi tersedia merupakan jadwal demo yang diisi pengelola, bukan tanggal rilis resmi penerbit.']]},
- pembayaran:{title:'Informasi pembayaran',lead:'Uji alur transaksi tanpa mengirim uang.',sections:[['Metode yang tersedia','Pilih virtual account, QRIS, atau e-wallet pada checkout. Tidak ada rekening tujuan, kode QR, ataupun permintaan transfer nyata. Halaman pembayaran menyediakan tombol untuk mensimulasikan hasil berhasil atau gagal.'],['Harga dan voucher','Harga produk dalam katalog merupakan harga demo Fritzoria, sebagian diawali dari snapshot referensi toko. Satu voucher dapat dipakai per pesanan. Minimum belanja diperiksa terhadap subtotal produk; potongan dibatasi maksimum yang tertera.'],['Pembayaran gagal','Pesanan yang gagal dapat dicoba ulang atau dibatalkan. Stok fisik tetap dicadangkan selama menunggu pembayaran. Pembatalan mengembalikan stok, dan tidak ada uang nyata yang terlibat.'],['Bukti transaksi','Invoice menampilkan harga yang berlaku ketika pesanan dibuat. Dokumen tersebut adalah bukti simulasi, bukan faktur pajak atau bukti pembayaran nyata.']]},
- pengembalian:{title:'Pengembalian pesanan',lead:'Skenario pengembalian untuk menguji layanan setelah pembelian.',sections:[['Ajukan melalui detail pesanan','Pesanan dengan buku fisik yang berstatus Selesai dapat diajukan untuk pengembalian. Tuliskan alasan setidaknya 10 karakter. Pengajuan berlaku untuk seluruh pesanan; retur sebagian belum didukung.'],['Pemeriksaan admin','Admin demo dapat menerima atau menolak permintaan. Jika diterima, seluruh nilai pembayaran demo dibatalkan dari total pembayaran dashboard, stok fisik dikembalikan, dan akses digital dari pesanan tersebut dicabut. Jika ditolak, pesanan kembali berstatus Selesai.'],['Buku digital','Pesanan e-book saja tidak memiliki alur pengembalian barang. Tidak ada berkas komersial berhak cipta yang dikirim dalam simulasi ini.'],['Ketentuan layanan nyata','Syarat komersial yang sebenarnya perlu ditetapkan sebelum toko mulai beroperasi. Teks halaman ini menjelaskan perilaku demo yang dapat diuji saat ini.']]},
- privasi:{title:'Privasi & data lokal',lead:'Ketahui apa yang tersimpan saat mencoba Fritzoria.',sections:[['Data yang disimpan','Browser menyimpan profil demo, hash sandi demo, alamat contoh, keranjang, wishlist, pesanan, ulasan, pesan bantuan, email minat, serta pengaturan admin. Naskah dan sampul yang diunggah lewat admin juga disimpan secara lokal.'],['Batas privasi demo','Semua data demo pada browser yang sama dapat dilihat melalui admin demo. Jangan memakai sandi asli, data pembayaran, atau informasi pribadi sensitif. Penyimpanan lokal bukan mekanisme keamanan untuk toko produksi.'],['Koneksi pihak ketiga','Sampul katalog dan bacaan contoh disajikan dari aset situs. Mengklik tautan sumber akan membuka situs pihak ketiga seperti Gramedia atau Project Gutenberg, yang memiliki kebijakan masing-masing.'],['Menghapus data','Data lokal dapat dihapus melalui pengaturan data situs di browser. Penghapusan tersebut juga menghilangkan akun demo, pesanan, buku unggahan, dan progres membaca pada perangkat ini.']]},
- syarat:{title:'Syarat penggunaan demo',lead:'Fritzoria saat ini adalah lingkungan demonstrasi frontend.',sections:[['Penggunaan','Gunakan website untuk mengeksplorasi antarmuka toko buku dan menyimulasikan alur pembelian. Harga, promo, stok, serta transaksi bukan penawaran komersial nyata.'],['Katalog','Judul, penulis, dan sampul mengikuti sumber yang dicantumkan. Informasi yang belum terverifikasi tidak dilengkapi dengan angka rekaan. Katalog awal ditinjau pada 6 September 2026; perubahan di sumber tidak tersinkron otomatis.'],['Konten unggahan','Unggah hanya sampul atau naskah yang berhak kamu gunakan. Fitur upload naskah menerima berkas teks untuk menguji reader. Toko ini tidak menyediakan berkas penuh buku komersial tanpa izin.'],['Batas fungsi','Akun, pembayaran, pelacakan, retur, notifikasi, serta pesan bantuan berjalan secara lokal. Pesan tidak dikirim ke email atau layanan pelanggan nyata. Sebelum operasional komersial, integrasi backend, keamanan, perizinan konten, dan ketentuan layanan perlu diselesaikan.']]}
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { ArrowRight, Ticket, MessageSquare, BookOpen } from 'lucide-react';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { useStore } from './provider';
+import { Button, Input, Go, Grid, PageHead, Crumbs, Pick } from './shared';
+const content: Record<string, {title:string;lead:string;sections:string[][]}> = {
+  "tentang": {
+    "title": "Tentang Fritzoria",
+    "lead": "Temukan buku berikutnya dan pahami fitur yang tersedia.",
+    "sections": [
+      [
+        "Buku untuk setiap pembaca",
+        "Katalog mencakup novel, sastra, buku anak, manga, bisnis, agama, dan teknologi. Identitas buku merujuk pada sumber yang dicantumkan."
+      ],
+      [
+        "Checkout saat ini",
+        "Buku fisik tersedia melalui COD. Membuat pesanan menyimpan transaksi ke akun dan mencadangkan stok di database. Tidak ada pembayaran online; bayar saat barang diterima. Pengiriman ditangani toko, bukan integrasi kurir otomatis."
+      ],
+      [
+        "Data akun dan perangkat",
+        "Akun, profil, alamat, wishlist, katalog, dan pesanan tersimpan di Supabase. Keranjang, progres reader, bookmark, email minat, ulasan lokal, tiket contoh, dan konfigurasi banner/voucher lokal tetap tersimpan di browser ini."
+      ],
+      [
+        "Bacaan digital",
+        "Pembelian e-book dan preorder belum tersedia. Pride and Prejudice tersedia gratis melalui reader. Naskah komersial berhak cipta tidak disertakan."
+      ]
+    ]
+  },
+  "pengiriman": {
+    "title": "Informasi pengiriman",
+    "lead": "Biaya yang ditampilkan sebelum membuat pesanan COD.",
+    "sections": [
+      [
+        "Buku fisik",
+        "Reguler Rp18.000 atau ekspres Rp30.000. Pengiriman diatur toko; belum ada pelacakan atau estimasi otomatis dari kurir. Hubungi toko untuk memastikan jadwal."
+      ],
+      [
+        "Gratis ongkir",
+        "Gratis ongkir ketika subtotal buku mencapai Rp250.000. Voucher belum didukung. Total akhir ditampilkan sebelum pesanan dibuat."
+      ],
+      [
+        "Alamat dan status",
+        "Alamat tersimpan di akun. Salinan alamat pesanan tidak berubah ketika alamat akun diubah. Admin memproses dan menandai pengiriman; pembeli mengonfirmasi setelah barang diterima dan COD dibayar."
+      ],
+      [
+        "Preorder",
+        "Produk preorder belum bisa dimasukkan ke checkout COD. Tanggal yang ditampilkan hanya informasi pengelola."
+      ]
+    ]
+  },
+  "pembayaran": {
+    "title": "Informasi pembayaran",
+    "lead": "Bayar saat barang diterima (COD).",
+    "sections": [
+      [
+        "Metode pembayaran",
+        "Checkout hanya menyediakan COD untuk buku fisik. Virtual account, QRIS, e-wallet, dan checkout e-book belum tersedia."
+      ],
+      [
+        "Harga dan voucher",
+        "Harga serta ketersediaan diperiksa kembali di server saat checkout. Voucher belum dapat digunakan, termasuk kode contoh pada pengaturan lokal admin."
+      ],
+      [
+        "Status pesanan",
+        "Pesanan baru berstatus Menunggu pembayaran karena COD belum dibayar. Admin dapat memproses dan mengirim tanpa menandainya lunas. Status Selesai dikonfirmasi setelah penerimaan dan pembayaran COD."
+      ],
+      [
+        "Pembatalan",
+        "Pembeli dapat membatalkan sebelum pesanan diproses. Setelah diproses, pembatalan sebelum pengiriman memerlukan tindakan toko. Pembatalan mengembalikan stok sekali."
+      ]
+    ]
+  },
+  "pengembalian": {
+    "title": "Pengembalian pesanan",
+    "lead": "Ajukan melalui detail pesanan COD yang selesai.",
+    "sections": [
+      [
+        "Pengajuan",
+        "Isi alasan 10–1.000 karakter pada pesanan berstatus Selesai. Pengajuan berlaku untuk seluruh pesanan; retur sebagian belum tersedia."
+      ],
+      [
+        "Pemeriksaan toko",
+        "Admin dapat menolak pengajuan atau menerima setelah barang kembali. Penerimaan retur memulihkan stok. Pengembalian uang ditangani toko secara terpisah; aplikasi tidak melakukan transfer dana."
+      ],
+      [
+        "Ketentuan",
+        "Pastikan kesepakatan kondisi barang dan biaya pengembalian dengan toko. Perubahan status dicatat di riwayat pesanan."
+      ]
+    ]
+  },
+  "privasi": {
+    "title": "Privasi & penyimpanan data",
+    "lead": "Bedakan data akun dan data yang hanya tersimpan di browser.",
+    "sections": [
+      [
+        "Data akun",
+        "Autentikasi ditangani Supabase. Profil, alamat, wishlist, dan pesanan disimpan di server dengan pembatasan akses. Admin berwenang dapat melihat pelanggan dan pesanan untuk pemenuhan."
+      ],
+      [
+        "Data perangkat",
+        "Browser menyimpan sesi masuk, keranjang, cache akun, progres baca, bookmark, email minat, ulasan lokal, tiket contoh, dan konfigurasi banner/voucher lokal. Jangan memakai browser bersama tanpa keluar dan membersihkan data situs."
+      ],
+      [
+        "Pihak ketiga",
+        "Supabase menyimpan data akun dan katalog. Hosting serta aset buku dapat dimuat dari layanan terkait. Tautan sumber membuka situs pihak ketiga dengan kebijakan masing-masing."
+      ],
+      [
+        "Menghapus data",
+        "Menghapus data situs membersihkan data perangkat dan sesi masuk, tetapi tidak menghapus akun atau pesanan di server. Penghapusan data server harus diminta kepada pengelola."
+      ]
+    ]
+  },
+  "syarat": {
+    "title": "Syarat penggunaan",
+    "lead": "Fitur transaksi yang tersedia saat ini.",
+    "sections": [
+      [
+        "Penggunaan",
+        "Periksa item, alamat, total, dan persetujuan COD sebelum memesan. Tombol Buat pesanan COD menyimpan pesanan dan mencadangkan stok; ini bukan tombol simulasi lokal."
+      ],
+      [
+        "Katalog",
+        "Informasi edisi mengacu pada sumber. Metadata yang belum terverifikasi diberi keterangan. Harga dan stok dikelola toko dan diperiksa kembali pada checkout."
+      ],
+      [
+        "Konten",
+        "Hanya unggah konten yang berhak digunakan. Bacaan klasik gratis tidak berarti buku komersial lain tersedia tanpa izin."
+      ],
+      [
+        "Batas fungsi",
+        "Pembayaran online, pembelian e-book, preorder, dan voucher belum tersedia. Tiket contoh, ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat atau dikirim ke layanan pelanggan."
+      ]
+    ]
+  }
 };
-const faqs=[['Apakah saya bisa membeli buku sungguhan di sini?','Belum. Fritzoria saat ini adalah demo frontend. Semua transaksi dilakukan tanpa pembayaran dan pengiriman nyata.'],['Mengapa data tersimpan setelah refresh?','Browser menyimpan sesi demo secara lokal, termasuk keranjang, akun, dan pesanan. Data tidak otomatis muncul pada perangkat lain.'],['Bagaimana mencoba checkout?','Tambahkan buku, masuk dengan akun demo, isi alamat contoh jika membeli buku fisik, periksa pesanan, lalu pilih hasil pembayaran simulasi.'],['Mengapa e-book tidak bisa dibaca penuh?','Naskah berhak cipta tidak disertakan dalam demo. Coba reader menggunakan Pride and Prejudice gratis, atau unggah naskah milik sendiri melalui admin.'],['Bagaimana memakai voucher?','Masukkan BACA10 untuk diskon 10% dengan minimum Rp150.000 dan maksimum potongan Rp30.000, selama voucher aktif. Syarat terbaru selalu terlihat di halaman promo.'],['Bagaimana melanjutkan status pengiriman?','Setelah pembayaran berhasil, buka Admin demo → Pesanan → Kelola. Tandai pesanan dikirim, lalu pembeli dapat mengonfirmasi penerimaan.'],['Apakah semua buku memiliki ISBN dan informasi halaman?','Tidak semua sumber menyediakan metadata lengkap. Kolom yang belum dapat diverifikasi diberi keterangan. Detail edisi bisa dilihat melalui tautan sumber tiap buku.']];
-export function Info({page}:{page:string}){const data=content[page];if(!data)return null;return <div className="wrap"><Crumbs items={[[data.title,""]]}/><div className="info-layout"><aside><h3>Informasi Fritzoria</h3>{Object.entries(content).map(([s,p])=><Link className={s===page?'active':''} key={s} href={`/${s}`}>{p.title}</Link>)}<Link href="/kontak">Hubungi kami</Link></aside><article><PageHead title={data.title} description={data.lead}/>{data.sections.map(([h,p])=><section key={h}><h2>{h}</h2><p>{p}</p></section>)}</article></div></div>}
-export function Help(){return <div className="wrap narrow"><Crumbs items={[["Bantuan",""]]}/><PageHead title="Ada yang ingin ditanyakan?" eyebrow="PUSAT BANTUAN" description="Panduan singkat untuk menjelajahi Fritzoria."/><Accordion type="single" collapsible>{faqs.map(([q,a],i)=><AccordionItem value={String(i)} key={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent>{a}</AccordionContent></AccordionItem>)}</Accordion><div className="help-links"><Go href="/kontak">Tulis pertanyaan <MessageSquare size={16}/></Go><Go href="/pengiriman" outline>Informasi pengiriman</Go></div></div>}
-export function Contact(){const {state,update}=useStore();const [topic,setTopic]=useState('Pesanan');const [sent,setSent]=useState('');return <div className="wrap narrow"><Crumbs items={[["Bantuan","/bantuan"],["Kontak",""]]}/><PageHead title="Hubungi Fritzoria" eyebrow="KAMI MENDENGARKAN" description="Formulir ini menyimpan tiket di admin demo lokal. Pesan tidak dikirim ke pihak lain."/>{sent&&<div className="notice" role="status">Tiket {sent} tersimpan. Kamu dapat melihatnya di Admin demo → Pesan bantuan.</div>}<form className="panel form-stack" onSubmit={e=>{e.preventDefault();const form=e.currentTarget;const fd=new FormData(form);const id='HELP-'+Date.now().toString(36).toUpperCase();update(s=>({...s,tickets:[{id,name:String(fd.get('name')).trim(),email:String(fd.get('email')).trim(),topic,message:String(fd.get('message')).trim(),status:'Baru'},...s.tickets]}));setSent(id);form.reset();toast.success('Pesan disimpan ke admin lokal.');}}><label>Nama<Input required name="name" maxLength={80}/></label><label>Email<Input required type="email" name="email"/></label><label>Topik<Pick label="Topik bantuan" value={topic} onChange={setTopic} options={['Pesanan','Pembayaran','E-book','Katalog','Kerja sama penerbit','Lainnya'].map(x=>[x,x])}/></label><label>Pesan<textarea required name="message" minLength={10} maxLength={2000} placeholder="Ceritakan pertanyaan atau kendalamu"/></label><Button type="submit">Simpan tiket bantuan <ArrowRight size={16}/></Button></form></div>}
-export function Promos(){const {state,books}=useStore();return <div className="wrap"><Crumbs items={[["Promo",""]]}/><PageHead title="Lebih banyak cerita, lebih hemat." eyebrow="PROMO FRITZORIA" description="Voucher dan harga berikut berlaku untuk transaksi simulasi."/><div className="promo-grid">{state.vouchers.filter(v=>v.active).map(v=><article key={v.code} className="voucher-card"><Ticket size={28}/><span className="eyebrow">VOUCHER BELANJA</span><h2>{v.code}</h2><p>{v.description}</p><Button variant="outline" onClick={async()=>{try{await navigator.clipboard.writeText(v.code);toast.success(`${v.code} disalin.`);}catch{toast.info(`Masukkan kode ${v.code} saat checkout.`);}}}>Salin kode</Button></article>)}</div><div className="section-head"><h2>Harga pilihan hari ini</h2><Link href="/katalog?urut=harga-naik">Semua buku <ArrowRight size={16}/></Link></div><Grid books={books.filter(b=>!b.hidden&&b.originalPrice>b.price).slice(0,12)}/></div>}
-export function Sources(){const {books}=useStore();const visibleBooks=books.filter(b=>!b.hidden);return <div className="wrap"><Crumbs items={[["Sumber katalog",""]]}/><PageHead title="Sumber & identitas buku" eyebrow="KATALOG YANG DAPAT DITELUSURI" description={`Katalog saat ini: ${visibleBooks.length} buku. Ditinjau 6 September 2026; harga, stok, dan aktivitas toko adalah simulasi.`}/><p className="notice">Halaman sumber Cantik Itu Luka memuat detail edisi yang tidak seragam dengan sampul. ISBN dan jumlah halamannya sengaja tidak ditampilkan sampai edisi dipastikan. Metadata yang tidak tersedia di sumber tidak diisi dengan angka rekaan.</p><div className="source-list">{visibleBooks.map(b=><div key={b.slug}><Link href={`/buku/${b.slug}`}><strong>{b.title}</strong><small>{b.author}</small></Link><span>{b.isbn||'ISBN belum terverifikasi'}</span><a href={b.source} target="_blank" rel="noreferrer">Sumber buku ↗</a></div>)}</div><p className="muted">Bacaan klasik: <a className="text-link" href="https://www.gutenberg.org/ebooks/1342" target="_blank" rel="noreferrer">Pride and Prejudice — Project Gutenberg</a>. File unduhan menyertakan teks sumber dan lisensinya.</p></div>}
+const faqs = [
+  [
+    "Bagaimana memesan buku?",
+    "Pilih buku fisik yang tersedia, masuk, pilih alamat, periksa total, lalu buat pesanan COD. Pesanan disimpan di server dan stok dicadangkan. Bayar saat diterima."
+  ],
+  [
+    "Mengapa data tersimpan setelah refresh?",
+    "Akun dan pesanan tersimpan di Supabase. Keranjang serta progres reader tersimpan di browser. Tiket contoh, ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat."
+  ],
+  [
+    "Mengapa e-book tidak bisa dibeli?",
+    "Checkout digital belum tersedia. Tombol pembelian e-book dinonaktifkan. Reader Pride and Prejudice tetap tersedia gratis."
+  ],
+  [
+    "Bagaimana memakai voucher?",
+    "Voucher belum didukung checkout COD. Kode contoh di admin lokal tidak dapat digunakan untuk pesanan."
+  ],
+  [
+    "Bagaimana melanjutkan status pengiriman?",
+    "Admin membuka Pesanan → Kelola, memproses COD lalu menandainya dikirim. Setelah barang diterima dan dibayar, pembeli dapat mengonfirmasi penyelesaian."
+  ],
+  [
+    "Bagaimana membatalkan atau mengajukan retur?",
+    "Batalkan melalui detail pesanan sebelum diproses. Untuk retur, gunakan formulir pada pesanan Selesai. Pengembalian dana diatur toko secara terpisah."
+  ],
+  [
+    "Apakah semua buku memiliki ISBN dan informasi halaman?",
+    "Tidak semua sumber menyediakan metadata lengkap. Lihat keterangan dan tautan sumber pada detail buku."
+  ]
+];
+export function Info({ page }: {
+    page: string;
+}) { const data = content[page]; if (!data)
+    return null; return <div className="wrap"><Crumbs items={[[data.title, ""]]}/><div className="info-layout"><aside><h3>Informasi Fritzoria</h3>{Object.entries(content).map(([s, p]) => <Link className={s === page ? 'active' : ''} key={s} href={`/${s}`}>{p.title}</Link>)}<Link href="/kontak">Hubungi kami</Link></aside><article><PageHead title={data.title} description={data.lead}/>{data.sections.map(([h, p]) => <section key={h}><h2>{h}</h2><p>{p}</p></section>)}</article></div></div>; }
+export function Help() { return <div className="wrap narrow"><Crumbs items={[["Bantuan", ""]]}/><PageHead title="Ada yang ingin ditanyakan?" eyebrow="PUSAT BANTUAN" description="Panduan singkat untuk menjelajahi Fritzoria."/><Accordion type="single" collapsible>{faqs.map(([q, a], i) => <AccordionItem value={String(i)} key={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent>{a}</AccordionContent></AccordionItem>)}</Accordion><div className="help-links"><Go href="/kontak">Tulis pertanyaan <MessageSquare size={16}/></Go><Go href="/pengiriman" outline>Informasi pengiriman</Go></div></div>; }
+export function Contact() { const { state, update } = useStore(); const [topic, setTopic] = useState('Pesanan'); const [sent, setSent] = useState(''); return <div className="wrap narrow"><Crumbs items={[["Bantuan", "/bantuan"], ["Kontak", ""]]}/><PageHead title="Hubungi Fritzoria" eyebrow="KAMI MENDENGARKAN" description="Formulir ini menyimpan tiket di admin demo lokal. Pesan tidak dikirim ke pihak lain."/>{sent && <div className="notice" role="status">Tiket {sent} tersimpan. Kamu dapat melihatnya di Admin demo → Pesan bantuan.</div>}<form className="panel form-stack" onSubmit={e => { e.preventDefault(); const form = e.currentTarget; const fd = new FormData(form); const id = 'HELP-' + Date.now().toString(36).toUpperCase(); update(s => ({ ...s, tickets: [{ id, name: String(fd.get('name')).trim(), email: String(fd.get('email')).trim(), topic, message: String(fd.get('message')).trim(), status: 'Baru' }, ...s.tickets] })); setSent(id); form.reset(); toast.success('Pesan disimpan ke admin lokal.'); }}><label>Nama<Input required name="name" maxLength={80}/></label><label>Email<Input required type="email" name="email"/></label><label>Topik<Pick label="Topik bantuan" value={topic} onChange={setTopic} options={['Pesanan', 'Pembayaran', 'E-book', 'Katalog', 'Kerja sama penerbit', 'Lainnya'].map(x => [x, x])}/></label><label>Pesan<textarea required name="message" minLength={10} maxLength={2000} placeholder="Ceritakan pertanyaan atau kendalamu"/></label><Button type="submit">Simpan tiket bantuan <ArrowRight size={16}/></Button></form></div>; }
+export function Promos() { const { books } = useStore(); return <div className="wrap"><Crumbs items={[["Promo", ""]]}/><PageHead title="Harga pilihan hari ini" eyebrow="PROMO FRITZORIA" description="Harga katalog terbaru. Voucher belum tersedia untuk checkout COD."/><p className="notice">Kode voucher contoh belum dapat digunakan. Total checkout menggunakan harga buku dan ongkir yang ditampilkan.</p><Grid books={books.filter(b => !b.hidden && b.originalPrice > b.price).slice(0,12)}/></div>; }
+export function Sources() { const { books } = useStore(); const visibleBooks = books.filter(b => !b.hidden); return <div className="wrap"><Crumbs items={[["Sumber katalog", ""]]}/><PageHead title="Sumber & identitas buku" eyebrow="KATALOG YANG DAPAT DITELUSURI" description={`Katalog saat ini: ${visibleBooks.length} buku. Metadata mengacu pada sumber; harga dan stok dikelola toko.`}/><p className="notice">Halaman sumber Cantik Itu Luka memuat detail edisi yang tidak seragam dengan sampul. ISBN dan jumlah halamannya sengaja tidak ditampilkan sampai edisi dipastikan. Metadata yang tidak tersedia di sumber tidak diisi dengan angka rekaan.</p><div className="source-list">{visibleBooks.map(b => <div key={b.slug}><Link href={`/buku/${b.slug}`}><strong>{b.title}</strong><small>{b.author}</small></Link><span>{b.isbn || 'ISBN belum terverifikasi'}</span><a href={b.source} target="_blank" rel="noreferrer">Sumber buku ↗</a></div>)}</div><p className="muted">Bacaan klasik: <a className="text-link" href="https://www.gutenberg.org/ebooks/1342" target="_blank" rel="noreferrer">Pride and Prejudice — Project Gutenberg</a>. File unduhan menyertakan teks sumber dan lisensinya.</p></div>; }
