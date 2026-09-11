@@ -25,13 +25,13 @@ export function testKey(env = process.env) {
   return key;
 }
 
-export async function requireTestAdmin(request: Request) {
+export async function testAdminContext(request: Request) {
   const token = request.headers.get("authorization")?.match(/^Bearer (\S+)$/)?.[1];
   if (!token) throw new PaymentTestError("Masuk sebagai admin untuk melakukan simulasi.", 401);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new PaymentTestError("Konfigurasi autentikasi belum tersedia.", 503);
-  // Publishable key + caller JWT only. No service-role access or database writes.
+  // Publishable key + caller JWT only. All database access remains subject to RLS.
   const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${token}` },
@@ -41,7 +41,11 @@ export async function requireTestAdmin(request: Request) {
   if (error || !data.user) throw new PaymentTestError("Sesi tidak valid. Silakan masuk kembali.", 401);
   const profile = await db.from("profiles").select("role").eq("id", data.user.id).single();
   if (profile.error || profile.data?.role !== "admin") throw new PaymentTestError("Simulasi hanya untuk admin.", 403);
-  return data.user.id;
+  return { userId: data.user.id, db };
+}
+
+export async function requireTestAdmin(request: Request) {
+  return (await testAdminContext(request)).userId;
 }
 
 export function testPayload(userId: string, channel: string, reference: string) {
@@ -74,7 +78,7 @@ export async function xenditRequest(key: string, path: string, payload?: unknown
   if (!response.ok) {
     // Never forward provider response bodies: they can contain sensitive information.
     const errorBody = await response.json().catch(() => ({}));
-    const code = ["DUPLICATE_ERROR", "API_VALIDATION_ERROR", "INVALID_PAYMENT_CHANNEL", "INVALID_AMOUNT", "INVALID_URL", "MISSING_CUSTOMER"].includes(errorBody.error_code) ? errorBody.error_code : "";
+    const code = ["DUPLICATE_ERROR", "API_VALIDATION_ERROR", "INVALID_PAYMENT_CHANNEL", "INVALID_AMOUNT", "INVALID_URL", "MISSING_CUSTOMER"].includes(errorBody?.error_code) ? errorBody.error_code : "";
     const message = response.status === 401 || response.status === 403
       ? "Xendit menolak akses. Periksa izin API key Mode Tes untuk Payments / Payment Sessions."
       : response.status === 404 ? "Sesi simulasi tidak ditemukan."
@@ -84,24 +88,25 @@ export async function xenditRequest(key: string, path: string, payload?: unknown
   return response.json();
 }
 
-export function publicTestSession(data: Record<string, unknown>, userId: string) {
+export function publicTestSession(data: Record<string, unknown>, userId: string, expectedAmount = 10000) {
   const metadata = data.metadata as Record<string, unknown> | undefined;
   if (metadata?.fritzoria_mode !== "sandbox" || metadata.fritzoria_user_id !== userId) {
     throw new PaymentTestError("Sesi simulasi tidak ditemukan.", 404);
   }
-  if (data.amount !== 10000 || data.currency !== "IDR") throw new PaymentTestError("Data simulasi tidak sesuai.", 502);
+  if (data.amount !== expectedAmount || data.currency !== "IDR") throw new PaymentTestError("Data simulasi tidak sesuai.", 502);
   const channels = data.allowed_payment_channels;
   if (!Array.isArray(channels) || channels.length !== 1 || !TEST_CHANNELS.includes(channels[0])) {
     throw new PaymentTestError("Channel simulasi tidak sesuai.", 502);
   }
-  const url = new URL(String(data.payment_link_url));
-  if (url.protocol !== "https:" || url.username || url.password ||
-    !["checkout-staging.xendit.co", "dev.xen.to"].includes(url.hostname)) {
+  let url: URL | undefined;
+  try { if (data.payment_link_url) url = new URL(String(data.payment_link_url)); } catch { /* rejected below */ }
+  if ((!url && (data.status === "ACTIVE" || data.payment_link_url != null)) || (url && (url.protocol !== "https:" || url.username || url.password ||
+    !["checkout-staging.xendit.co", "dev.xen.to"].includes(url.hostname)))) {
     throw new PaymentTestError("Xendit tidak mengembalikan tautan Mode Tes yang dikenal.", 502);
   }
   if (!/^ps-[a-zA-Z0-9-]{20,64}$/.test(String(data.payment_session_id)) ||
     !["ACTIVE", "COMPLETED", "EXPIRED", "CANCELED"].includes(String(data.status))) {
     throw new PaymentTestError("Respons sesi Xendit tidak valid.", 502);
   }
-  return { id: String(data.payment_session_id), url: url.href, status: String(data.status), amount: 10000, channel: channels[0] as string };
+  return { id: String(data.payment_session_id), url: url?.href || "", status: String(data.status), amount: expectedAmount, channel: channels[0] as string };
 }

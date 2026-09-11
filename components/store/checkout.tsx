@@ -7,10 +7,12 @@ import { Button, Blank, PageHead, Pick, Go } from "./shared";
 import { AddressEditor } from "./account";
 import { totals, money, cartError } from "@/lib/store/logic";
 import { createOrder } from "@/lib/supabase/orders";
+import { SimulationCheckout } from "./simulation-checkout";
 
-export function Checkout() {
+export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
   const {
     state,
+    isAdmin,
     accountReady,
     books,
     booksReady,
@@ -20,6 +22,7 @@ export function Checkout() {
     refreshOrders,
   } = useStore();
   const [address, setAddress] = useState("");
+  const [testMode, setTestMode] = useState(false);
   const [courier, setCourier] = useState("Reguler");
   const [note, setNote] = useState("");
   const [editor, setEditor] = useState(false);
@@ -79,6 +82,7 @@ export function Checkout() {
         />
       </div>
     );
+  if (testEnabled && isAdmin && testMode) return <SimulationCheckout onBack={()=>setTestMode(false)}/>;
   const submit = async () => {
     if (
       lock.current ||
@@ -163,6 +167,12 @@ export function Checkout() {
         title="Checkout"
         description="Buku fisik · Bayar di tempat (COD)"
       />
+      {testEnabled && isAdmin && <section className="panel" style={{marginBottom:24}}>
+        <h2>Pilih jenis pembayaran</h2>
+        <p>COD membuat pesanan asli. Pilihan Xendit di bawah hanya Mode Tes dan disimpan terpisah.</p>
+        <Button variant="outline" onClick={()=>setTestMode(true)}>VA / e-wallet — Mode Tes</Button>
+        <Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go>
+      </section>}
       <div className="checkout-layout">
         <div className="panel">
           <fieldset disabled={busy}>

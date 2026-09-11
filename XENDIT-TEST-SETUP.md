@@ -1,4 +1,22 @@
-# Xendit sandbox — tahap 1
+# Xendit sandbox — checkout Mode Tes
+
+## Pembaruan checkout 2026-09-11
+
+Preview/admin saja; Production tetap COD. Terapkan migrasi `20260911092022_simulation_orders.sql` sebelum mencoba checkout.
+
+Masuk admin pada Preview, tambah buku fisik, buka `/checkout`, pilih **VA / e-wallet — Mode Tes**, pilih channel dan konfirmasi simulasi. Setelah simulasi Xendit, klik **Periksa status dari Xendit**. `/pesanan-simulasi` memuat 50 percobaan terbaru milik admin tersebut, tersimpan lintas perangkat.
+
+- Tabel `simulation_orders` terpisah dari pesanan asli, stok, pendapatan dan pengiriman. Harga dihitung ulang server; tidak mengirim alamat, email atau nomor HP ke Xendit. Tanpa QRIS.
+- ID percobaan disimpan sebelum menghubungi Xendit. Retry/reload memakai ID yang sama sehingga tidak membuat sesi ganda. Hasil pembuatan yang belum pasti harus diperiksa di dashboard Mode Tes sebelum mencoba ulang.
+- RLS hanya mengizinkan admin pemilik mengakses barisnya. Total tidak dapat diperbarui klien. Tidak memakai service-role key.
+- Status diverifikasi langsung dari Xendit beserta pemilik, order, nominal dan channel. Belum ada webhook/sinkronisasi latar belakang.
+- Keranjang tetap dipertahankan. Selesainya simulasi tidak membuat pesanan asli.
+- Halaman diagnostik `/uji-pembayaran` di bawah tetap nominal Rp10.000, tanpa riwayat pesanan buku. Gunakan checkout untuk riwayat persisten.
+- DANA diagnostik berhasil end-to-end melalui Microsoft Edge pada 2026-09-11; API mengonfirmasi COMPLETED untuk `ps-6aa3ca28d9fcab275ea93acc`.
+
+Tes: `node --experimental-strip-types --test tests/simulation-order.test.mjs tests/xendit-test.test.mjs`; setelah build, `node --test tests/simulation-http.test.mjs` (provider/database fixture terisolasi).
+
+## Cakupan halaman diagnostik tahap 1 (bukan checkout baru)
 
 Halaman `/uji-pembayaran` hanya tersedia pada deployment Vercel Preview dan hanya admin terverifikasi yang dapat membuat/membaca sesi. Production tetap COD.
 
