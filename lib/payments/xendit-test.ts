@@ -53,7 +53,7 @@ export function testPayload(userId: string, channel: string, reference: string) 
     allowed_payment_channels: [channel],
     allow_save_payment_method: "DISABLED",
     description: "SIMULASI Fritzoria Rp10.000 — bukan pesanan, tidak ada pengiriman barang",
-    customer: { reference_id: `fritzoriatest${userId.replaceAll("-", "")}`,
+    customer: { reference_id: `fritzoriatest${reference.replaceAll(/[^a-zA-Z0-9]/g, "")}`,
       type: "INDIVIDUAL", individual_detail: { given_names: "Fritzoria Test" } },
     metadata: { fritzoria_mode: "sandbox", fritzoria_user_id: userId },
   };
@@ -73,11 +73,13 @@ export async function xenditRequest(key: string, path: string, payload?: unknown
   }
   if (!response.ok) {
     // Never forward provider response bodies: they can contain sensitive information.
+    const errorBody = await response.json().catch(() => ({}));
+    const code = ["DUPLICATE_ERROR", "API_VALIDATION_ERROR", "INVALID_PAYMENT_CHANNEL", "INVALID_AMOUNT", "INVALID_URL", "MISSING_CUSTOMER"].includes(errorBody.error_code) ? errorBody.error_code : "";
     const message = response.status === 401 || response.status === 403
       ? "Xendit menolak akses. Periksa izin API key Mode Tes untuk Payments / Payment Sessions."
       : response.status === 404 ? "Sesi simulasi tidak ditemukan."
       : "Xendit menolak permintaan. Periksa aktivasi channel dan log API Mode Tes di dashboard.";
-    throw new PaymentTestError(message, response.status === 404 ? 404 : 502);
+    throw new PaymentTestError(`${message}${code ? ` (${code})` : ""}`, response.status === 404 ? 404 : 502);
   }
   return response.json();
 }
