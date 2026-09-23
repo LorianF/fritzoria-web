@@ -44,6 +44,15 @@ test('password page rejects visits without a recovery token',async()=>{
   await context.close();
 });
 
+test('expired recovery redirects from the homepage to a useful error',async()=>{
+  const context=await browser.newContext();
+  const page=await context.newPage();
+  await page.goto(base+'/#error=access_denied&error_code=otp_expired');
+  await page.waitForURL('**/atur-ulang-sandi#error=access_denied&error_code=otp_expired');
+  assert.match(await page.locator('.auth-form .form-error').textContent(),/pernah digunakan/);
+  await context.close();
+});
+
 test('valid recovery session enforces confirmation and updates the password',async()=>{
   const context=await browser.newContext();
   const user={id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'reader@example.test',user_metadata:{}};

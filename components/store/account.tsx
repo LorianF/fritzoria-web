@@ -401,6 +401,15 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
 
 export function UpdatePassword() {
   const router = useRouter();
+  const [linkError] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    return hash.get("error_code") === "otp_expired"
+      ? "Tautan pemulihan sudah kedaluwarsa atau pernah digunakan. Minta tautan baru, lalu buka hanya email yang paling baru."
+      : hash.get("error")
+        ? "Tautan pemulihan tidak dapat digunakan. Minta tautan baru dan coba lagi."
+        : "";
+  });
   const [status, setStatus] = useState<"checking" | "ready" | "invalid">(
     "checking",
   );
@@ -503,7 +512,7 @@ export function UpdatePassword() {
         {status === "invalid" && (
           <>
             <p className="form-error" role="alert">
-              Tautan pemulihan tidak valid atau sudah kedaluwarsa.
+              {linkError || "Tautan pemulihan tidak valid atau sudah kedaluwarsa."}
             </p>
             <Go href="/lupa-sandi">Minta tautan baru</Go>
           </>

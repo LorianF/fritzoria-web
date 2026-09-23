@@ -1,5 +1,6 @@
 'use client';
 import {Suspense,useEffect} from 'react';
+import {useRouter} from 'next/navigation';
 import {Shell,Blank} from './shared';
 import {Home,Catalog,Product,Authors} from './catalog';
 import {Account,Auth,UpdatePassword} from './account';
@@ -13,6 +14,7 @@ function decodePathSegment(value:string){try{return decodeURIComponent(value);}c
 
 function Routed({path}:{path:string[]}){
   const {books}=useStore();
+  const router=useRouter();
   const [root='',rawId='']=path;
   const id=decodePathSegment(rawId);
   useEffect(()=>{
@@ -20,6 +22,14 @@ function Routed({path}:{path:string[]}){
     const title=book?`${book.title} — ${book.author}`:root==='penulis'&&id?`${id} — Penulis`:root?root.replaceAll('-',' ').replace(/^./,c=>c.toUpperCase()):'Toko Buku Fisik & Digital';
     document.title=`${title||'Halaman tidak ditemukan'} | Fritzoria`;
   },[root,id,books]);
+  useEffect(()=>{
+    const hash=new URLSearchParams(window.location.hash.replace(/^#/,''));
+    const recovery=hash.get('type')==='recovery';
+    const recoveryError=Boolean(hash.get('error')||hash.get('error_code'));
+    if(root!=='atur-ulang-sandi'&&(recovery||recoveryError)){
+      router.replace(`/atur-ulang-sandi${window.location.hash}`);
+    }
+  },[root,router]);
   if(root==='admin')return <Admin section={id}/>;
   let page;
   if(!root)page=<Home/>;
