@@ -43,7 +43,10 @@ export async function POST(request: Request) {
     let lines;
     try { lines=parseSimulationLines(body.lines); } catch(error) { throw new PaymentTestError((error as Error).message); }
     const existing = await db.from("simulation_orders").select("*").eq("user_id",userId).eq("id",body.key).maybeSingle();
-    if (existing.error) throw new PaymentTestError("Penyimpanan simulasi belum tersedia.",503);
+    if (existing.error) {
+      console.error("sandbox_order_lookup_failed", existing.error.code);
+      throw new PaymentTestError("Penyimpanan simulasi belum tersedia.",503);
+    }
     if (existing.data) {
       if (!existing.data.session_id) throw new PaymentTestError("Percobaan ini sudah tercatat; buka Riwayat Mode Tes untuk memeriksa hasilnya. Tidak dibuat sesi ganda.",409);
       return Response.json(await reconcileSandbox(key,existing.data.session_id,userId,existing.data.id), {headers});
