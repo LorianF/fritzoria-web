@@ -553,6 +553,7 @@ export function UpdatePassword() {
 const menu = [
   ["Ringkasan", "/akun", UserRound],
   ["Pesanan saya", "/pesanan", Package],
+  ["Pembayaran Mode Tes", "/pesanan-simulasi", Package],
   ["Daftar alamat", "/akun/alamat", MapPin],
   ["Wishlist", "/wishlist", Heart],
   ["Rak digital", "/rak-digital", BookOpen],

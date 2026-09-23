@@ -248,6 +248,7 @@ export function Orders() {
         ]}
       />
       <PageHead title="Pesanan saya" eyebrow="DARI RAK KE RUMAH" />
+      <p className="notice">Pembayaran online yang diuji tersimpan terpisah. <Go href="/pesanan-simulasi" outline>Lihat pembayaran Mode Tes</Go></p>
       <div className="order-filters">
         <Input
           value={q}

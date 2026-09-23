@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+test('customer sandbox: RLS, reservations, expiry, replay, and sticky settlement',async()=>{
+ const db=new PGlite();
+ const buyer='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-000000000002';
+ const id='00000000-0000-4000-8000-000000000003',id2='00000000-0000-4000-8000-000000000004';
+ try{
+  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+   create schema auth;create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+   create function public.is_admin() returns boolean language sql stable as $$select false$$;
+   create table profiles(id uuid primary key);
+   create table books(slug text primary key,stock integer,physical_price integer,hidden boolean,preorder boolean);
+   create table orders(id uuid primary key);
+   grant usage on schema public,auth to authenticated,service_role;
+   grant select,update on books to service_role;
+   insert into profiles values('${buyer}'),('${other}');
+   insert into books values('uji',2,100000,false,false);`);
+  await db.exec(await readFile(new URL('../supabase/migrations/20260911092022_simulation_orders.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/20260923111051_customer_sandbox_payments.sql',import.meta.url),'utf8'));
+  const items=JSON.stringify([{slug:'uji',title:'Uji',quantity:2,unit_price:100000}]);
+  const reserve=(key=id,user=buyer)=>db.query('select reserve_sandbox_order($1,$2,$3,$4,$5::jsonb,$6,$7,$8) as r',[key,user,'DANA','Reguler',items,200000,18000,218000]);
+  await db.exec('set role service_role');
+  assert.equal((await reserve()).rows[0].r.created,true);
+  assert.equal((await reserve()).rows[0].r.created,false);
+  await assert.rejects(reserve(id,other),/Percobaan tidak tersedia/);
+  await assert.rejects(reserve(id2,other),/Stok sandbox/);
+  await db.exec('reset role');
+  assert.equal((await db.query('select stock from books')).rows[0].stock,2);
+  assert.equal((await db.query('select count(*)::int n from orders')).rows[0].n,0);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[buyer]);
+  await db.exec('set role authenticated');
+  assert.equal((await db.query('select * from simulation_orders')).rows.length,1);
+  await assert.rejects(db.query("update simulation_orders set status='COMPLETED'"),/permission denied/);
+  await assert.rejects(db.query("update simulation_orders set session_id='ps-123456789012345678901234'"),/permission denied/);
+  await assert.rejects(reserve(),/permission denied/);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[other]);
+  assert.equal((await db.query('select * from simulation_orders')).rows.length,0);
+  await db.exec('reset role;set role service_role');
+  const reconcile=status=>db.query('select reconcile_sandbox_payment($1,$2,$3,$4,$5,$6) as r',[id,buyer,'ps-123456789012345678901234',status,'https://dev.xen.to/test',null]);
+  await reconcile('ACTIVE');await reconcile('COMPLETED');await reconcile('COMPLETED');await reconcile('EXPIRED');
+  assert.equal((await reconcile('ACTIVE')).rows[0].r.status,'COMPLETED');
+  assert.equal((await db.query('select count(*)::int n from sandbox_payment_events')).rows[0].n,2);
+  assert.equal((await reserve(id2,other)).rows[0].r.created,true);
+  await db.query("update simulation_orders set expires_at=now()-interval '1 second' where id=$1",[id2]);
+  assert.equal((await reserve('00000000-0000-4000-8000-000000000005')).rows[0].r.created,true);
+  await db.exec('reset role');
+  assert.equal((await db.query('select stock from books')).rows[0].stock,2);
+ }finally{await db.close();}
+});

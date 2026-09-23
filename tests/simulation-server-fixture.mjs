@@ -7,6 +7,17 @@ globalThis.fetch=async(input,init)=>{
  if(u.pathname==='/auth/v1/user')return Response.json(user);
  if(u.pathname==='/rest/v1/profiles')return Response.json({role:h.get('authorization')==='Bearer customer'?'customer':'admin'});
  if(u.pathname==='/rest/v1/books')return Response.json([{slug:'uji',title:'Buku Uji',physical_price:100000,stock:5,hidden:false,preorder:false}]);
+ if(u.pathname==='/rest/v1/rpc/reserve_sandbox_order'){
+  const p=JSON.parse(init.body);
+  if(orders.has(p.p_id))return Response.json({created:false,order:orders.get(p.p_id)});
+  const row={id:p.p_id,user_id:p.p_user,channel:p.p_channel,courier:p.p_courier,items:p.p_items,subtotal:p.p_subtotal,shipping:p.p_shipping,total:p.p_total,status:'PENDING',created_at:new Date().toISOString(),expires_at:new Date(Date.now()+1800000).toISOString(),session_id:null,setup_error:''};
+  orders.set(row.id,row);return Response.json({created:true,order:row});
+ }
+ if(u.pathname==='/rest/v1/rpc/reconcile_sandbox_payment'){
+  const p=JSON.parse(init.body),row=orders.get(p.p_id);
+  Object.assign(row,{session_id:p.p_session,status:row.status==='COMPLETED'?'COMPLETED':p.p_status,payment_url:p.p_url});
+  return Response.json(row);
+ }
  if(u.pathname==='/rest/v1/simulation_orders'){
   const id=u.searchParams.get('id')?.slice(3);
   if(method==='POST'){

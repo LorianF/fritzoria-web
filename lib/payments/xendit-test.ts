@@ -29,9 +29,9 @@ export function testKey(env = process.env) {
   return key;
 }
 
-export async function testAdminContext(request: Request) {
+export async function testCustomerContext(request: Request) {
   const token = request.headers.get("authorization")?.match(/^Bearer (\S+)$/)?.[1];
-  if (!token) throw new PaymentTestError("Masuk sebagai admin untuk melakukan simulasi.", 401);
+  if (!token) throw new PaymentTestError("Masuk untuk melakukan pembayaran Mode Tes.", 401);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new PaymentTestError("Konfigurasi autentikasi belum tersedia.", 503);
@@ -43,9 +43,14 @@ export async function testAdminContext(request: Request) {
   });
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) throw new PaymentTestError("Sesi tidak valid. Silakan masuk kembali.", 401);
-  const profile = await db.from("profiles").select("role").eq("id", data.user.id).single();
-  if (profile.error || profile.data?.role !== "admin") throw new PaymentTestError("Simulasi hanya untuk admin.", 403);
   return { userId: data.user.id, db };
+}
+
+export async function testAdminContext(request: Request) {
+  const {db, userId} = await testCustomerContext(request);
+  const profile = await db.from("profiles").select("role").eq("id", userId).single();
+  if (profile.error || profile.data?.role !== "admin") throw new PaymentTestError("Simulasi hanya untuk admin.", 403);
+  return { userId, db };
 }
 
 export async function requireTestAdmin(request: Request) {

@@ -1,46 +1,58 @@
-# Xendit sandbox — checkout Mode Tes
+# Xendit — checkout pelanggan Mode Tes
 
-## Pembaruan checkout 2026-09-11
+## Cakupan
 
-Preview/admin saja; Production tetap COD. Terapkan migrasi `20260911092022_simulation_orders.sql` sebelum mencoba checkout.
+Pelanggan yang login dapat memilih COD atau **VA / e-wallet — Mode Tes** di `/checkout`.
+COD tetap pesanan asli. Pembayaran online memakai API Xendit sungguhan dengan key Mode Tes;
+tidak menerima uang asli, mengirim barang, memotong stok, atau menambah pendapatan.
+13 channel: DANA, OVO, ShopeePay, LinkAja, AstraPay, GoPay, serta VA BNI,
+BRI, BCA, Mandiri, Permata, CIMB, dan BSI. QRIS tidak termasuk. Ketersediaan tergantung akun Xendit.
+`/uji-pembayaran` tetap alat diagnostik khusus admin.
 
-Masuk admin pada Preview, tambah buku fisik, buka `/checkout`, pilih **VA / e-wallet — Mode Tes**, pilih channel dan konfirmasi simulasi. Setelah simulasi Xendit, klik **Periksa status dari Xendit**. `/pesanan-simulasi` memuat 50 percobaan terbaru milik admin tersebut, tersimpan lintas perangkat.
+## Konfigurasi server
 
-- Tabel `simulation_orders` terpisah dari pesanan asli, stok, pendapatan dan pengiriman. Harga dihitung ulang server; tidak mengirim alamat, email atau nomor HP ke Xendit. Tanpa QRIS.
-- ID percobaan disimpan sebelum menghubungi Xendit. Retry/reload memakai ID yang sama sehingga tidak membuat sesi ganda. Hasil pembuatan yang belum pasti harus diperiksa di dashboard Mode Tes sebelum mencoba ulang.
-- RLS hanya mengizinkan admin pemilik mengakses barisnya. Total tidak dapat diperbarui klien. Tidak memakai service-role key.
-- Status diverifikasi langsung dari Xendit beserta pemilik, order, nominal dan channel. Belum ada webhook/sinkronisasi latar belakang.
-- Keranjang tetap dipertahankan. Selesainya simulasi tidak membuat pesanan asli.
-- Halaman diagnostik `/uji-pembayaran` di bawah tetap nominal Rp10.000, tanpa riwayat pesanan buku. Gunakan checkout untuk riwayat persisten.
-- DANA diagnostik berhasil end-to-end melalui Microsoft Edge pada 2026-09-11; API mengonfirmasi COMPLETED untuk `ps-6aa3ca28d9fcab275ea93acc`.
+- Terapkan migrasi `20260911092022_simulation_orders.sql` dan `20260923111051_customer_sandbox_payments.sql`.
+- `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` untuk autentikasi.
+- `SUPABASE_SERVICE_ROLE_KEY` hanya server, untuk menulis hasil pembayaran terverifikasi.
+- `XENDIT_SECRET_KEY` hanya key `xnd_development_...`; key Live ditolak.
+- `XENDIT_SANDBOX_ENABLED=true` diperlukan untuk membuka sandbox di Production.
+- `XENDIT_WEBHOOK_TOKEN` adalah callback verification token dari dashboard Xendit Mode Tes.
+- Daftarkan webhook Payment Session completed/expired Mode Tes ke
+  `https://fritzoria-web.vercel.app/api/payments/webhook`.
+- Deploy ulang setelah perubahan environment variables. Jangan menyimpan secret dalam Git atau laporan.
 
-Tes: `node --experimental-strip-types --test tests/simulation-order.test.mjs tests/xendit-test.test.mjs`; setelah build, `node --test tests/simulation-http.test.mjs` (provider/database fixture terisolasi).
+## Alur dan keamanan
 
-## Cakupan halaman diagnostik tahap 1 (bukan checkout baru)
+1. Login pelanggan, tambah buku fisik, buka checkout dan pilih Mode Tes.
+2. Pilih channel, konfirmasi bahwa tidak memakai uang asli, lalu buat pesanan.
+3. Buka checkout sandbox Xendit dan gunakan simulator resmi, bukan transfer sungguhan.
+4. Kembali ke `/pesanan-simulasi`. Status diperiksa otomatis selama halaman terbuka
+   (maksimum 20 kali per pembukaan status ACTIVE), atau gunakan tombol pemeriksaan.
+5. Webhook terautentikasi mengambil ulang sesi dari Xendit sebelum menyimpan status.
+   Redirect saja tidak pernah dianggap bukti pembayaran. Tanpa webhook terkonfigurasi,
+   pemeriksaan manual/polling tetap berfungsi tetapi sinkronisasi saat halaman ditutup tidak tersedia.
 
-Halaman `/uji-pembayaran` hanya tersedia pada deployment Vercel Preview dan hanya admin terverifikasi yang dapat membuat/membaca sesi. Production tetap COD.
+- RLS membatasi riwayat pada pemilik. Pelanggan tidak boleh menulis status, nominal, atau sesi langsung.
+- Harga, stok, dan ongkir diperiksa ulang server. Tidak mengirim alamat/nomor HP pribadi ke Xendit.
+- Percobaan menggunakan UUID yang dipertahankan saat reload/retry. Reservasi atomik mencegah
+  permintaan bersamaan membuat dua sesi untuk UUID yang sama; maksimum 20 percobaan/jam/akun.
+- Hasil pembuatan sesi yang tidak pasti tidak otomatis dicoba ulang; periksa dashboard Mode Tes.
+- Reservasi 30 menit berada di tabel sandbox sendiri, bukan `books.stock`. Kapasitas bebas
+  setelah terminal atau batas waktu lewat. Sesi selesai tidak pernah menjadi pesanan COD/asli.
+- Notifikasi duplikat/out-of-order aman; status COMPLETED tidak dapat diturunkan.
+- Riwayat menampilkan 50 percobaan terakhir. Keranjang dipertahankan. Pesanan kedaluwarsa/batal
+  menyediakan tindakan membuat percobaan baru.
 
-## Konfigurasi
+## Verifikasi
 
-- `XENDIT_SECRET_KEY`: Secret, Preview saja, key Mode Tes (`xnd_development_...`).
-- Supabase URL + publishable key diperlukan untuk memverifikasi identitas dan role admin. Tidak memakai service-role key.
-- Buat deployment Preview baru setelah mengubah environment variables.
-- API key Xendit perlu akses membuat dan membaca Payment Sessions. Channel bergantung pada akun.
+```sh
+npm run build
+node --experimental-strip-types --test tests/xendit-test.test.mjs tests/simulation-order.test.mjs tests/sandbox-db.test.mjs tests/simulation-http.test.mjs tests/checkout-db.test.mjs
+```
 
-## Alur
+Uji Edge dengan akun non-admin: satu DANA dan satu VA BCA sampai COMPLETED; cek persistensi
+riwayat, webhook, akses lintas akun, console/network, serta jumlah pesanan asli dan fingerprint stok.
+Tes fixture bukan bukti bahwa webhook dashboard sudah dikonfigurasi.
 
-Masuk admin pada URL Preview → `/uji-pembayaran` → pilih VA/e-wallet → buat simulasi Rp10.000 → buka halaman Xendit di tab baru → lakukan simulasi sesuai petunjuk Mode Tes → kembali dan periksa status.
-
-Simpan ID sesi untuk memeriksa kembali setelah reload. Jika pembuatan sesi timeout, periksa dashboard Xendit sebelum mengulangi; retry POST belum dijamin idempotent dan bisa membuat sesi tes tambahan.
-
-## Batas keamanan dan cakupan
-
-- Tidak ada uang sungguhan, pesanan produksi, pengurangan stok, perubahan keranjang, pengiriman, atau pencatatan pendapatan.
-- Nominal tetap di server; channel memakai allowlist tanpa QRIS.
-- API ditutup di semua environment selain Preview, dan menolak key Live.
-- Status diperoleh dari API Xendit dengan pemeriksaan kepemilikan metadata, bukan query string redirect.
-- Tidak ada akses tulis Supabase. Preview yang memakai database produksi tetap hanya membaca auth/profile untuk fitur ini.
-- Belum mengintegrasikan checkout buku, penyimpanan riwayat lintas perangkat di Fritzoria, webhook, atau transfer bank manual. Ini tahap koneksi sandbox, bukan payment gateway produksi selesai.
-- Jangan gunakan data identitas/rekening sungguhan untuk simulasi; ikuti fixture resmi channel Xendit.
-
-Dokumentasi: https://docs.xendit.co/apidocs/create-session dan https://docs.xendit.co/apidocs/get-session
+Referensi: https://docs.xendit.co/apidocs/create-session,
+https://docs.xendit.co/apidocs/get-session, https://docs.xendit.co/docs/handling-webhooks

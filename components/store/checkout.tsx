@@ -12,7 +12,6 @@ import { SimulationCheckout } from "./simulation-checkout";
 export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
   const {
     state,
-    isAdmin,
     accountReady,
     books,
     booksReady,
@@ -82,7 +81,7 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
         />
       </div>
     );
-  if (testEnabled && isAdmin && testMode) return <SimulationCheckout onBack={()=>setTestMode(false)}/>;
+  if (testEnabled && testMode) return <SimulationCheckout onBack={()=>setTestMode(false)}/>;
   const submit = async () => {
     if (
       lock.current ||
@@ -165,9 +164,9 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
     <div className="wrap">
       <PageHead
         title="Checkout"
-        description="Buku fisik · Bayar di tempat (COD)"
+        description={testEnabled ? "Buku fisik · COD atau pembayaran online Mode Tes" : "Buku fisik · Bayar di tempat (COD)"}
       />
-      {testEnabled && isAdmin && <section className="panel" style={{marginBottom:24}}>
+      {testEnabled && <section className="panel" style={{marginBottom:24}}>
         <h2>Pilih jenis pembayaran</h2>
         <p>COD membuat pesanan asli. Pilihan Xendit di bawah hanya Mode Tes dan disimpan terpisah.</p>
         <Button variant="outline" onClick={()=>setTestMode(true)}>VA / e-wallet — Mode Tes</Button>

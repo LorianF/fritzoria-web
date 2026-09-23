@@ -6,7 +6,7 @@ import {useStore} from "./provider";
 import {Blank,Button,Go,PageHead} from "./shared";
 import type {SimulationLine} from "@/lib/payments/simulation-order";
 
-type Order={id:string;created_at:string;items:SimulationLine[];subtotal:number;shipping:number;total:number;channel:string;session_id:string|null;setup_error:string};
+type Order={id:string;created_at:string;items:SimulationLine[];subtotal:number;shipping:number;total:number;channel:string;session_id:string|null;setup_error:string;status?:string;expires_at?:string;verified_at?:string};
 type Result={order:Order;payment:{id:string;url:string;status:string;amount:number}|null};
 const methods=[["DANA","DANA"],["OVO","OVO"],["SHOPEEPAY","ShopeePay"],["LINKAJA","LinkAja"],["ASTRAPAY","AstraPay"],["GOPAY","GoPay"],["BNI_VIRTUAL_ACCOUNT","VA BNI"],["BRI_VIRTUAL_ACCOUNT","VA BRI"],["BCA_VIRTUAL_ACCOUNT","VA BCA"],["MANDIRI_VIRTUAL_ACCOUNT","VA Mandiri"],["PERMATA_VIRTUAL_ACCOUNT","VA Permata"],["CIMB_VIRTUAL_ACCOUNT","VA CIMB"],["BSI_VIRTUAL_ACCOUNT","VA BSI"]];
 const statuses:Record<string,string>={ACTIVE:"Menunggu pembayaran simulasi",COMPLETED:"Simulasi selesai — bukan pembayaran asli",EXPIRED:"Simulasi kedaluwarsa",CANCELED:"Simulasi dibatalkan"};
@@ -21,17 +21,38 @@ async function api<T>(path="",body?:unknown):Promise<T>{
 function Receipt({value}:{value:Result}){
   const [result,setResult]=useState(value);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const checking=useRef(false);
+  async function refresh(){
+    if(checking.current)return;
+    checking.current=true;setBusy(true);setError("");
+    try{setResult(await api<Result>(`?id=${value.order.id}`));}catch(e){setError((e as Error).message);}
+    finally{checking.current=false;setBusy(false);}
+  }
+  useEffect(()=>{
+    if(result.payment?.status!=="ACTIVE")return;
+    let canceled=false,attempts=0;
+    const timer=setInterval(async()=>{
+      if(document.visibilityState!=="visible"||checking.current||attempts>=20)return;
+      attempts++;checking.current=true;
+      try{const next=await api<Result>(`?id=${value.order.id}`);if(!canceled){setResult(next);setError("");}}
+      catch{if(!canceled)setError("Pemeriksaan otomatis tertunda. Anda dapat memeriksa status kembali.");}
+      finally{checking.current=false;}
+    },15000);
+    return()=>{canceled=true;clearInterval(timer);};
+  },[value.order.id,result.payment?.status]);
   return <section className="panel" style={{overflowWrap:"anywhere"}}>
     <h2>Pesanan Mode Tes</h2><p>SIM-{result.order.id}</p>
     <p role="status">{result.payment?statuses[result.payment.status]:"Sesi pembayaran belum terkonfirmasi"}</p>
     {result.order.items.map(item=><p key={item.slug}>{item.quantity} × {item.title} · {money(item.unit_price)}</p>)}
     <p>Ongkir simulasi: {money(result.order.shipping)}</p><p>Total simulasi: <strong>{money(result.order.total)}</strong></p>
     <p>Tidak masuk pesanan asli, tidak memotong stok, tidak dicatat sebagai pendapatan, dan tidak dikirim.</p>
+    {result.order.expires_at&&result.payment?.status==="ACTIVE"&&<p>Batas pembayaran: {new Date(result.order.expires_at).toLocaleString("id-ID")}. Reservasi stok hanya berlaku untuk sandbox.</p>}
     {result.payment?.status==="ACTIVE"&&<p><a href={result.payment.url} target="_blank" rel="noopener noreferrer">Buka pembayaran Mode Tes Xendit ↗</a></p>}
     {!result.payment&&<p role="alert">{result.order.setup_error||"Pembuatan sesi sedang berjalan atau hasilnya belum pasti. Periksa kembali; jangan membuat pesanan ganda."}</p>}
-    <Button disabled={busy} onClick={async()=>{setBusy(true);setError("");try{setResult(await api<Result>(`?id=${result.order.id}`));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>{busy?"Memeriksa…":"Periksa status dari Xendit"}</Button>
+    <Button disabled={busy} onClick={()=>void refresh()}>{busy?"Memeriksa…":"Periksa status dari Xendit"}</Button>
     {error&&<p role="alert">{error}</p>}
-    <p>Status diperiksa dari Xendit, bukan dari redirect atau data browser. Pembaruan otomatis melalui webhook belum tersedia.</p>
+    <p>Status diperiksa otomatis selama halaman terbuka. Gunakan tombol pemeriksaan jika pembaruan tertunda.</p>
+    {result.payment&&["EXPIRED","CANCELED"].includes(result.payment.status)&&<Go href={`/checkout?retry=${result.order.id}`} outline>Coba pembayaran baru</Go>}
   </section>;
 }
 
@@ -51,11 +72,12 @@ export function SimulationCheckout({onBack}:{onBack:()=>void}){
       const fingerprint=JSON.stringify({lines:state.cart,channel,courier,total:total.total});
       let previous:{key?:string;fingerprint?:string}={};
       try{previous=JSON.parse(localStorage.getItem(storageKey)||"{}");}catch{}
-      const key=previous.fingerprint===fingerprint&&previous.key?previous.key:crypto.randomUUID();
+      const retry=new URLSearchParams(window.location.search).get("retry");
+      const key=previous.fingerprint===fingerprint&&previous.key&&previous.key!==retry?previous.key:crypto.randomUUID();
       localStorage.setItem(storageKey,JSON.stringify({key,fingerprint}));
       const created=await api<Result>("",{key,channel,courier,lines:state.cart,expectedTotal:total.total});
       setResult(created);
-      // Keep the attempt key across reloads and retries; the cart intentionally stays unchanged.
+      // Preserve the attempt key until an explicit retry after expiry/cancellation.
     }catch(e){setError((e as Error).message);}finally{lock.current=false;setBusy(false);}
   }
   return <div className="wrap">
@@ -83,18 +105,29 @@ export function SimulationCheckout({onBack}:{onBack:()=>void}){
 }
 
 export function SimulationOrders(){
-  const {state,accountReady,isAdmin}=useStore();
+  const {state,accountReady}=useStore();
+  if(!accountReady)return <div className="wrap"><p>Memuat akun…</p></div>;
+  if(!state.session)return <div className="wrap"><Blank title="Masuk untuk melihat pembayaran" text="Riwayat Mode Tes tersimpan di akun Anda." href="/masuk?next=/pesanan-simulasi" cta="Masuk"/></div>;
+  return <CustomerSimulationOrders key={state.session}/>;
+}
+function CustomerSimulationOrders(){
+  const {state,accountReady}=useStore();
   const [orders,setOrders]=useState<Order[]>([]),[error,setError]=useState(""),[busy,setBusy]=useState(false);
   const [selected,setSelected]=useState<Result|null>(null);
-  useEffect(()=>{if(!accountReady||!isAdmin)return;let canceled=false;
-    api<{orders:Order[]}>().then(data=>{if(!canceled)setOrders(data.orders);}).catch(e=>{if(!canceled)setError(e.message);});
+  useEffect(()=>{if(!accountReady||!state.session)return;let canceled=false;
+    api<{orders:Order[]}>().then(async data=>{if(canceled)return;setOrders(data.orders);
+      const id=new URLSearchParams(window.location.search).get("id");
+      if(id&&data.orders.some(order=>order.id===id)){const receipt=await api<Result>(`?id=${id}`);if(!canceled)setSelected(receipt);}
+    }).catch(e=>{if(!canceled)setError(e.message);});
     return()=>{canceled=true;};
-  },[accountReady,isAdmin,state.session]);
+  },[accountReady,state.session]);
   return <div className="wrap"><PageHead title="Pesanan Mode Tes" description="Riwayat terpisah dari pesanan dan pendapatan asli · 50 percobaan terbaru"/>
-    {!accountReady?<p>Memuat akun…</p>:!isAdmin?<Blank title="Akses admin diperlukan" text="Riwayat sandbox khusus admin pemilik simulasi." href="/masuk?next=/pesanan-simulasi" cta="Masuk"/>:<>
+    <p className="notice">MODE TES — tanpa uang asli atau pengiriman barang. Riwayat ini hanya menampilkan pembayaran akun Anda.</p>
+    {!accountReady?<p>Memuat akun…</p>:!state.session?<Blank title="Masuk untuk melihat pembayaran" text="Riwayat Mode Tes tersimpan di akun Anda." href="/masuk?next=/pesanan-simulasi" cta="Masuk"/>:<>
       {selected&&<Receipt key={selected.order.id} value={selected}/>}
       {!orders.length&&!error&&<p>Belum ada pesanan simulasi yang dimuat.</p>}
-      {orders.map(order=><section className="panel" key={order.id} style={{marginBottom:16,overflowWrap:"anywhere"}}><h2>SIM-{order.id}</h2><p>{order.channel} · {money(order.total)} · {new Date(order.created_at).toLocaleString("id-ID")}</p>
+      {orders.map(order=><section className="panel" key={order.id} style={{marginBottom:16,overflowWrap:"anywhere"}}><h2>SIM-{order.id.slice(0,8)}</h2><p>{order.channel} · {money(order.total)} · {new Date(order.created_at).toLocaleString("id-ID")}</p>
+        <p>{statuses[(selected?.order.id===order.id?selected.payment?.status:order.status)||""]||"Status belum diverifikasi"}</p>
         <Button disabled={busy} onClick={async()=>{setBusy(true);setError("");try{setSelected(await api<Result>(`?id=${order.id}`));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Lihat dan verifikasi simulasi</Button>
       </section>)}
       {error&&<p role="alert">{error}</p>}
