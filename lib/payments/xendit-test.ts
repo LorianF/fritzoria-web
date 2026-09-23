@@ -15,9 +15,13 @@ export const TEST_CHANNELS = [
   "BSI_VIRTUAL_ACCOUNT", "DANA", "OVO", "SHOPEEPAY", "LINKAJA", "ASTRAPAY", "GOPAY",
 ];
 
+export function testEnvironmentEnabled(env = process.env) {
+  return env.VERCEL_ENV === "preview" || (env.VERCEL_ENV === "production" && env.XENDIT_SANDBOX_ENABLED === "true");
+}
+
 export function testKey(env = process.env) {
-  // Fail closed even if somebody accidentally adds the key to Production.
-  if (env.VERCEL_ENV !== "preview") throw new PaymentTestError("Simulasi hanya tersedia di deployment Preview.", 404);
+  // Production requires explicit sandbox opt-in; live keys are always rejected.
+  if (!testEnvironmentEnabled(env)) throw new PaymentTestError("Mode Tes belum diaktifkan pada deployment ini.", 404);
   const key = env.XENDIT_SECRET_KEY?.trim();
   if (!key?.startsWith("xnd_development_")) {
     throw new PaymentTestError("Secret API Key Xendit Mode Tes belum dikonfigurasi dengan benar.", 503);

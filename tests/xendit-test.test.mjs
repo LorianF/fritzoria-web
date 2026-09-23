@@ -9,6 +9,9 @@ test('sandbox fails closed for production, local environments, missing and live 
   for(const VERCEL_ENV of ['production','development',undefined])assert.throws(()=>testKey({VERCEL_ENV,XENDIT_SECRET_KEY:'xnd_development_fixture'}));
   for(const XENDIT_SECRET_KEY of ['',undefined,'xnd_production_fixture','xnd_public_development_fixture'])assert.throws(()=>testKey({VERCEL_ENV:'preview',XENDIT_SECRET_KEY}));
   assert.equal(testKey({VERCEL_ENV:'preview',XENDIT_SECRET_KEY:'xnd_development_fixture'}),'xnd_development_fixture');
+  assert.equal(testKey({VERCEL_ENV:'production',XENDIT_SANDBOX_ENABLED:'true',XENDIT_SECRET_KEY:'xnd_development_fixture'}),'xnd_development_fixture');
+  assert.throws(()=>testKey({VERCEL_ENV:'production',XENDIT_SANDBOX_ENABLED:'true',XENDIT_SECRET_KEY:'xnd_production_fixture'}));
+  assert.throws(()=>testKey({VERCEL_ENV:'development',XENDIT_SANDBOX_ENABLED:'true',XENDIT_SECRET_KEY:'xnd_development_fixture'}));
 });
 test('fixed sandbox amount, no QRIS or client-selected unsupported channel, no real customer PII',()=>{
   assert.ok(!TEST_CHANNELS.includes('QRIS'));
@@ -27,6 +30,19 @@ test('live checkout, arbitrary redirect URLs and unexpected amount/channel are r
 });
 test('auth rejects absent bearer before any external request',async()=>{
   await assert.rejects(requireTestAdmin(new Request('https://preview.test/api/payments/test')),e=>e.status===401);
+});
+
+test('every offered channel preserves all provider session states without inventing success',()=>{
+  for(const channel of TEST_CHANNELS){
+    for(const status of ['ACTIVE','COMPLETED','EXPIRED','CANCELED']){
+      const value=publicTestSession({...session,status,allowed_payment_channels:[channel],payment_link_url:status==='ACTIVE'?session.payment_link_url:null},user);
+      assert.equal(value.status,status);
+      assert.equal(value.channel,channel);
+      assert.equal(value.url,status==='ACTIVE'?session.payment_link_url:'');
+    }
+  }
+  assert.throws(()=>publicTestSession({...session,payment_link_url:null},user));
+  for(const status of ['FAILED','PAID','SUCCESS','',null])assert.throws(()=>publicTestSession({...session,status},user));
 });
 test('Xendit API uses Basic server auth, no-store and refuses raw error disclosure',async()=>{
   const original=globalThis.fetch;
