@@ -2,7 +2,7 @@
 import { uid } from "@/lib/store/logic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   UserRound,
@@ -218,7 +218,7 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
       const supabase = getSupabaseBrowserClient();
       if (reset) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/akun/pengaturan`,
+          redirectTo: `${window.location.origin}/atur-ulang-sandi`,
         });
         if (error) throw error;
         setResetSent(true);
@@ -300,7 +300,8 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
         </p>
         {resetSent ? (
           <div className="notice" role="status">
-            Tautan pemulihan sudah dikirim. Periksa kotak masuk dan folder spam.
+            Jika email tersebut terdaftar, tautan pemulihan akan dikirim. Periksa
+            kotak masuk dan folder spam.
           </div>
         ) : (
           <form onSubmit={submit}>
@@ -393,6 +394,149 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
             {register ? "Masuk" : "Daftar"}
           </Link>
         </p>
+      </div>
+    </div>
+  );
+}
+
+export function UpdatePassword() {
+  const router = useRouter();
+  const [status, setStatus] = useState<"checking" | "ready" | "invalid">(
+    "checking",
+  );
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const recoveryAccessToken =
+      hashParams.get("type") === "recovery"
+        ? hashParams.get("access_token")
+        : null;
+    const code = new URLSearchParams(window.location.search).get("code");
+    const supabase = getSupabaseBrowserClient();
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (active && event === "PASSWORD_RECOVERY" && session) setStatus("ready");
+    });
+
+    async function verifyRecovery() {
+      try {
+        if (code) {
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+          window.history.replaceState({}, "", "/atur-ulang-sandi");
+          if (active) setStatus("ready");
+          return;
+        }
+        if (recoveryAccessToken) {
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (active) {
+            setStatus(
+              data.session?.access_token === recoveryAccessToken
+                ? "ready"
+                : "invalid",
+            );
+          }
+          return;
+        }
+        if (active) setStatus("invalid");
+      } catch {
+        if (active) setStatus("invalid");
+      }
+    }
+    void verifyRecovery();
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    const data = new FormData(e.currentTarget);
+    const password = String(data.get("password") || "");
+    const confirmation = String(data.get("passwordConfirmation") || "");
+    if (password.length < 8) {
+      setError("Sandi baru minimal 8 karakter.");
+      return;
+    }
+    if (password !== confirmation) {
+      setError("Konfirmasi sandi belum sama.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
+      await supabase.auth.signOut({ scope: "local" });
+      toast.success("Sandi berhasil diperbarui. Silakan masuk kembali.");
+      router.replace("/masuk?reset=berhasil");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Sandi tidak dapat diperbarui. Minta tautan baru dan coba lagi.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="wrap auth-layout">
+      <div className="auth-story">
+        <p className="eyebrow">PEMULIHAN AKUN</p>
+        <h1>Buat sandi baru yang aman.</h1>
+        <p>Tautan pemulihan hanya dapat digunakan melalui email yang dikirim Supabase.</p>
+        <BookOpen size={60} />
+      </div>
+      <div className="auth-form">
+        <h2>Atur ulang sandi</h2>
+        {status === "checking" && (
+          <p className="notice" role="status">Memeriksa tautan pemulihan…</p>
+        )}
+        {status === "invalid" && (
+          <>
+            <p className="form-error" role="alert">
+              Tautan pemulihan tidak valid atau sudah kedaluwarsa.
+            </p>
+            <Go href="/lupa-sandi">Minta tautan baru</Go>
+          </>
+        )}
+        {status === "ready" && (
+          <form onSubmit={submit}>
+            <label>
+              Sandi baru
+              <Input
+                name="password"
+                type="password"
+                minLength={8}
+                required
+                autoComplete="new-password"
+                placeholder="Minimal 8 karakter"
+              />
+            </label>
+            <label>
+              Ulangi sandi baru
+              <Input
+                name="passwordConfirmation"
+                type="password"
+                minLength={8}
+                required
+                autoComplete="new-password"
+              />
+            </label>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <Button type="submit" className="wide" disabled={busy}>
+              {busy ? "Menyimpan…" : "Simpan sandi baru"}
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );

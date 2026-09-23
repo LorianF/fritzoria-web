@@ -2,7 +2,7 @@
 import {Suspense,useEffect} from 'react';
 import {Shell,Blank} from './shared';
 import {Home,Catalog,Product,Authors} from './catalog';
-import {Account,Auth} from './account';
+import {Account,Auth,UpdatePassword} from './account';
 import {Cart,Checkout,Orders,OrderDetail} from './commerce';
 import {DigitalShelf,Reader} from './reader';
 import {Info,Help,Contact,Promos,Sources} from './info';
@@ -34,6 +34,7 @@ function Routed({path}:{path:string[]}){
   else if(root==='invoice'&&id)page=<OrderDetail id={id} invoice/>;
   else if(root==='akun')page=<Account section={id||'ringkasan'}/>;
   else if(['masuk','daftar','lupa-sandi'].includes(root))page=<Auth key={root} mode={root}/>;
+  else if(root==='atur-ulang-sandi')page=<UpdatePassword/>;
   else if(root==='rak-digital')page=<DigitalShelf/>;
   else if(root==='baca'&&id)page=<Reader key={id} slug={id}/>;
   else if(root==='promo')page=<Promos/>;
