@@ -1,5 +1,5 @@
 import { testCustomerContext, testKey, testPayload, publicTestSession, xenditRequest, PaymentTestError, TEST_CHANNELS } from "@/lib/payments/xendit-test";
-import { sandboxDatabase, reconcileSandbox } from "@/lib/payments/sandbox-server";
+import { sandboxDatabase, reconcileSandbox, enforceServerRateLimit } from "@/lib/payments/sandbox-server";
 import { parseSimulationLines, simulationQuote } from "@/lib/payments/simulation-order";
 
 export const runtime = "nodejs";
@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   try {
     const key = testKey();
     const {db,userId} = await testCustomerContext(request);
+    await enforceServerRateLimit("xendit_customer_status", userId, 60, 600);
     const id = new URL(request.url).searchParams.get("id");
     if (id && !uuid.test(id)) throw new PaymentTestError("ID pesanan simulasi tidak valid.");
     if (id) {

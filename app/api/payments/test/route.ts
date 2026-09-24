@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PaymentTestError, testKey, requireTestAdmin, testPayload, xenditRequest, publicTestSession } from "@/lib/payments/xendit-test";
+import { enforceServerRateLimit } from "@/lib/payments/sandbox-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
       throw new PaymentTestError("Origin tidak diizinkan.", 403);
     }
     const userId = await requireTestAdmin(request);
+    await enforceServerRateLimit("xendit_admin_create", userId, 15, 3600);
     const raw = await request.text();
     if (raw.length > 1024) throw new PaymentTestError("Permintaan terlalu besar.", 413);
     let body;
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
   try {
     const key = testKey();
     const userId = await requireTestAdmin(request);
+    await enforceServerRateLimit("xendit_admin_status", userId, 60, 600);
     const id = new URL(request.url).searchParams.get("id") || "";
     if (!/^ps-[a-zA-Z0-9-]{20,64}$/.test(id)) throw new PaymentTestError("ID sesi tidak valid.");
     const result = await xenditRequest(key, `/sessions/${encodeURIComponent(id)}`);

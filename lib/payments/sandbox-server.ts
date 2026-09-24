@@ -8,6 +8,18 @@ export function sandboxDatabase() {
   return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},
     global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10000)})}});
 }
+export async function enforceServerRateLimit(
+  scope: string,
+  subjectKey: string,
+  limit: number,
+  windowSeconds: number,
+) {
+  const {data,error}=await sandboxDatabase().rpc("consume_server_rate_limit",{
+    p_scope:scope,p_key:subjectKey,p_limit:limit,p_window_seconds:windowSeconds,
+  });
+  if(error) throw new PaymentTestError("Pembatas keamanan pembayaran belum tersedia.",503);
+  if(!data) throw new PaymentTestError("Terlalu banyak permintaan. Tunggu sebentar lalu coba kembali.",429);
+}
 export async function reconcileSandbox(key:string, sessionId:string, expectedUser?:string, expectedOrder?:string) {
   const session=await xenditRequest(key,`/sessions/${encodeURIComponent(sessionId)}`);
   const meta=session.metadata;

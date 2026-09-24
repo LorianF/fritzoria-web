@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Turnstile } from "@marsidev/react-turnstile";
 import {
   UserRound,
   MapPin,
@@ -35,7 +36,6 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useStore } from "./provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Button, Input, Go, PageHead, Crumbs, Blank } from "./shared";
@@ -202,14 +202,21 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
   const register = mode === "daftar";
   const reset = mode === "lupa-sandi";
   const raw = params.get("next") || "/akun";
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/akun";
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
     setError("");
+    if (turnstileSiteKey && !captchaToken) {
+      setError("Selesaikan pemeriksaan keamanan terlebih dahulu.");
+      return;
+    }
+    setBusy(true);
     const data = new FormData(e.currentTarget);
     const email = String(data.get("email")).trim().toLowerCase();
     const password = String(data.get("password") || "");
@@ -219,6 +226,7 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
       if (reset) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/atur-ulang-sandi`,
+          captchaToken: captchaToken || undefined,
         });
         if (error) throw error;
         setResetSent(true);
@@ -229,7 +237,7 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
         const { data: result, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { name } },
+          options: { data: { name }, captchaToken: captchaToken || undefined },
         });
         if (error) throw error;
         if (result.session) {
@@ -251,6 +259,7 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
       const { data: result, error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: { captchaToken: captchaToken || undefined },
       });
       if (error) throw error;
       const displayName = String(
@@ -267,6 +276,10 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
       router.push(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tidak dapat masuk.");
+      if (turnstileSiteKey) {
+        setCaptchaToken("");
+        setCaptchaKey((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -326,10 +339,10 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
                 <Input
                   name="password"
                   type="password"
-                  minLength={8}
+                  minLength={register ? 12 : 8}
                   required
                   autoComplete={register ? "new-password" : "current-password"}
-                  placeholder="Minimal 8 karakter"
+                  placeholder={register ? "Minimal 12 karakter" : "Sandi akun"}
                 />
               </label>
             )}
@@ -339,12 +352,29 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
                 penggunaan dan kebijakan privasi.
               </label>
             )}
+            {turnstileSiteKey && (
+              <Turnstile
+                key={captchaKey}
+                siteKey={turnstileSiteKey}
+                onSuccess={setCaptchaToken}
+                onExpire={() => setCaptchaToken("")}
+                onError={() => {
+                  setCaptchaToken("");
+                  setError("Pemeriksaan keamanan gagal dimuat. Coba muat ulang halaman.");
+                }}
+                options={{ theme: "light", language: "id" }}
+              />
+            )}
             {error && (
               <p role="alert" className="form-error">
                 {error}
               </p>
             )}
-            <Button type="submit" className="wide" disabled={busy}>
+            <Button
+              type="submit"
+              className="wide"
+              disabled={busy || Boolean(turnstileSiteKey && !captchaToken)}
+            >
               {busy
                 ? "Memproses…"
                 : reset
@@ -469,8 +499,8 @@ export function UpdatePassword() {
     const data = new FormData(e.currentTarget);
     const password = String(data.get("password") || "");
     const confirmation = String(data.get("passwordConfirmation") || "");
-    if (password.length < 8) {
-      setError("Sandi baru minimal 8 karakter.");
+    if (password.length < 12) {
+      setError("Sandi baru minimal 12 karakter.");
       return;
     }
     if (password !== confirmation) {
@@ -524,10 +554,10 @@ export function UpdatePassword() {
               <Input
                 name="password"
                 type="password"
-                minLength={8}
+                minLength={12}
                 required
                 autoComplete="new-password"
-                placeholder="Minimal 8 karakter"
+                placeholder="Minimal 12 karakter"
               />
             </label>
             <label>
@@ -535,7 +565,7 @@ export function UpdatePassword() {
               <Input
                 name="passwordConfirmation"
                 type="password"
-                minLength={8}
+                minLength={12}
                 required
                 autoComplete="new-password"
               />
