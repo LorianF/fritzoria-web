@@ -17,7 +17,7 @@ const content: Record<string, {title:string;lead:string;sections:string[][]}> = 
       ],
       [
         "Checkout saat ini",
-        "Buku fisik tersedia melalui COD. Membuat pesanan menyimpan transaksi ke akun dan mencadangkan stok di database. Tidak ada pembayaran online; bayar saat barang diterima. Pengiriman ditangani toko, bukan integrasi kurir otomatis."
+        "Buku fisik tersedia melalui COD untuk pesanan asli. Checkout juga menyediakan 13 virtual account dan e-wallet Xendit Mode Tes tanpa uang sungguhan; data tes disimpan terpisah dan tidak mengubah pesanan asli atau stok. Pengiriman pesanan asli ditangani toko, bukan integrasi kurir otomatis."
       ],
       [
         "Data akun dan perangkat",
@@ -53,11 +53,15 @@ const content: Record<string, {title:string;lead:string;sections:string[][]}> = 
   },
   "pembayaran": {
     "title": "Informasi pembayaran",
-    "lead": "Bayar saat barang diterima (COD).",
+    "lead": "COD untuk pesanan asli atau Xendit Mode Tes tanpa uang sungguhan.",
     "sections": [
       [
         "Metode pembayaran",
-        "Checkout hanya menyediakan COD untuk buku fisik. Virtual account, QRIS, e-wallet, dan checkout e-book belum tersedia."
+        "Checkout buku fisik menyediakan COD untuk pesanan asli serta Xendit Mode Tes: DANA, OVO, ShopeePay, LinkAja, AstraPay, GoPay, dan virtual account BNI, BRI, BCA, Mandiri, Permata, CIMB, serta BSI. QRIS dan checkout e-book belum tersedia."
+      ],
+      [
+        "Batas Mode Tes",
+        "Pembayaran Xendit menggunakan lingkungan sandbox dan tidak menerima uang sungguhan. Pesanan tes memiliki riwayat terpisah, tidak masuk pendapatan atau pesanan asli, tidak memotong stok, dan tidak memicu pengiriman."
       ],
       [
         "Harga dan voucher",

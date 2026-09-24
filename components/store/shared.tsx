@@ -485,7 +485,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
       </header>
       <div className="demo-line">
-        Checkout buku fisik dengan COD · Pesanan tersimpan di akun.
+        Checkout buku fisik: COD untuk pesanan asli atau 13 VA/e-wallet Xendit Mode Tes tanpa uang sungguhan.
         E-book dan voucher belum dapat dibeli/digunakan. <Link href="/tentang">Pelajari</Link>
       </div>
       <main id="main" tabIndex={-1}>

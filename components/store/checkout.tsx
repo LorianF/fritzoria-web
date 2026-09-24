@@ -77,8 +77,15 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
         <Blank
           pageTitle
           title="Keranjang kosong"
-          text="Pilih buku sebelum membuat pesanan."
+          text="Pilih buku fisik terlebih dahulu. Di checkout tersedia COD untuk pesanan asli serta 13 virtual account/e-wallet Xendit Mode Tes tanpa uang sungguhan."
         />
+        {testEnabled && (
+          <p className="notice">
+            Metode online Mode Tes muncul setelah ada buku fisik di keranjang:
+            DANA, OVO, ShopeePay, LinkAja, AstraPay, GoPay, serta VA BNI,
+            BRI, BCA, Mandiri, Permata, CIMB, dan BSI.
+          </p>
+        )}
       </div>
     );
   if (testEnabled && testMode) return <SimulationCheckout onBack={()=>setTestMode(false)}/>;
@@ -167,10 +174,14 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
         description={testEnabled ? "Buku fisik · COD atau pembayaran online Mode Tes" : "Buku fisik · Bayar di tempat (COD)"}
       />
       {testEnabled && <section className="panel" style={{marginBottom:24}}>
-        <h2>Pilih jenis pembayaran</h2>
-        <p>COD membuat pesanan asli. Pilihan Xendit di bawah hanya Mode Tes dan disimpan terpisah.</p>
-        <Button variant="outline" onClick={()=>setTestMode(true)}>VA / e-wallet — Mode Tes</Button>
-        <Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go>
+        <h2>Metode pembayaran tersedia</h2>
+        <p><strong>COD</strong> membuat pesanan asli dan dibayar saat buku diterima.</p>
+        <p><strong>13 VA / e-wallet Xendit — Mode Tes</strong> tersedia untuk menguji alur pembayaran tanpa uang sungguhan. Data tes disimpan terpisah dan tidak mengubah pesanan asli maupun stok.</p>
+        <p className="muted small">DANA, OVO, ShopeePay, LinkAja, AstraPay, GoPay, VA BNI, BRI, BCA, Mandiri, Permata, CIMB, dan BSI.</p>
+        <div className="button-row">
+          <Button onClick={()=>setTestMode(true)}>Pilih pembayaran online Mode Tes</Button>
+          <Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go>
+        </div>
       </section>}
       <div className="checkout-layout">
         <div className="panel">
@@ -207,10 +218,10 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
               Gratis ongkir mulai Rp250.000. Pengiriman dikelola toko; belum
               terhubung otomatis ke kurir.
             </p>
-            <h2>Pembayaran COD</h2>
+            <h2>COD — pesanan asli</h2>
             <p>
-              Bayar saat barang diterima. Tidak ada pembayaran online pada tahap
-              ini.
+              Bayar saat barang diterima. Untuk VA atau e-wallet sandbox, pilih
+              tombol pembayaran online Mode Tes di atas.
             </p>
             <label>
               Catatan (opsional)
