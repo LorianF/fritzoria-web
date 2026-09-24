@@ -11,6 +11,7 @@ import {
   PageHead,
   Pick,
   Go,
+  LoadingState,
 } from "./shared";
 import { AddressEditor } from "./account";
 import { totals, money, cartError } from "@/lib/store/logic";
@@ -61,7 +62,7 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
     (state.cart.some((l) => books.find((b) => b.slug === l.slug)?.preorder)
       ? "Buku preorder belum tersedia untuk checkout COD."
       : "");
-  if (!accountReady) return <p className="loading-state">Memuat akun…</p>;
+  if (!accountReady) return <LoadingState title="Memuat checkout" rows={2}/>;
   if (!state.session)
     return (
       <div className="wrap">

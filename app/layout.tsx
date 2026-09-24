@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/components/store/provider";
+import { SupportWidget } from "@/components/store/support";
 
 export const metadata: Metadata = {
   title: "Fritzoria — Toko Buku Fisik & Digital",
@@ -21,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className="antialiased"><StoreProvider>{children}</StoreProvider></body>
+      <body className="antialiased"><StoreProvider>{children}<SupportWidget /></StoreProvider></body>
     </html>
   );
 }

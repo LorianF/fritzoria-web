@@ -1,11 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { ArrowRight, Ticket, MessageSquare, BookOpen } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useStore } from './provider';
-import { Button, Input, Go, Grid, PageHead, Crumbs, Pick } from './shared';
+import { Go, Grid, PageHead, Crumbs } from './shared';
+import { CustomerSupport } from './support';
 const content: Record<string, {title:string;lead:string;sections:string[][]}> = {
   "tentang": {
     "title": "Tentang Fritzoria",
@@ -21,7 +20,7 @@ const content: Record<string, {title:string;lead:string;sections:string[][]}> = 
       ],
       [
         "Data akun dan perangkat",
-        "Akun, profil, alamat, wishlist, katalog, dan pesanan tersimpan di Supabase. Keranjang, progres reader, bookmark, email minat, ulasan lokal, tiket contoh, dan konfigurasi banner/voucher lokal tetap tersimpan di browser ini."
+        "Akun, profil, alamat, wishlist, katalog, pesanan, dan percakapan CS tersimpan di Supabase. Keranjang, progres reader, bookmark, email minat, ulasan lokal, dan konfigurasi banner/voucher lokal tetap tersimpan di browser ini."
       ],
       [
         "Bacaan digital",
@@ -105,7 +104,7 @@ const content: Record<string, {title:string;lead:string;sections:string[][]}> = 
       ],
       [
         "Data perangkat",
-        "Browser menyimpan sesi masuk, keranjang, cache akun, progres baca, bookmark, email minat, ulasan lokal, tiket contoh, dan konfigurasi banner/voucher lokal. Jangan memakai browser bersama tanpa keluar dan membersihkan data situs."
+        "Browser menyimpan sesi masuk, keranjang, cache akun, progres baca, bookmark, email minat, ulasan lokal, dan konfigurasi banner/voucher lokal. Percakapan CS tersimpan di akun. Jangan memakai browser bersama tanpa keluar dan membersihkan data situs."
       ],
       [
         "Pihak ketiga",
@@ -135,7 +134,7 @@ const content: Record<string, {title:string;lead:string;sections:string[][]}> = 
       ],
       [
         "Batas fungsi",
-        "Pembayaran online, pembelian e-book, preorder, dan voucher belum tersedia. Tiket contoh, ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat atau dikirim ke layanan pelanggan."
+        "Pembayaran online untuk uang sungguhan, pembelian e-book, preorder, dan voucher belum tersedia. Xendit Mode Tes hanya untuk simulasi. Percakapan CS tersimpan di akun; ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat."
       ]
     ]
   }
@@ -147,7 +146,7 @@ const faqs = [
   ],
   [
     "Mengapa data tersimpan setelah refresh?",
-    "Akun dan pesanan tersimpan di Supabase. Keranjang serta progres reader tersimpan di browser. Tiket contoh, ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat."
+    "Akun, pesanan, dan percakapan CS tersimpan di Supabase. Keranjang serta progres reader tersimpan di browser. Ulasan, banner, dan voucher lokal belum tersinkron lintas perangkat."
   ],
   [
     "Mengapa e-book tidak bisa dibeli?",
@@ -173,8 +172,8 @@ const faqs = [
 export function Info({ page }: {
     page: string;
 }) { const data = content[page]; if (!data)
-    return null; return <div className="wrap"><Crumbs items={[[data.title, ""]]}/><div className="info-layout"><aside><h3>Informasi Fritzoria</h3>{Object.entries(content).map(([s, p]) => <Link className={s === page ? 'active' : ''} key={s} href={`/${s}`}>{p.title}</Link>)}<Link href="/kontak">Hubungi kami</Link></aside><article><PageHead title={data.title} description={data.lead}/>{data.sections.map(([h, p]) => <section key={h}><h2>{h}</h2><p>{p}</p></section>)}</article></div></div>; }
-export function Help() { return <div className="wrap narrow"><Crumbs items={[["Bantuan", ""]]}/><PageHead title="Ada yang ingin ditanyakan?" eyebrow="PUSAT BANTUAN" description="Panduan singkat untuk menjelajahi Fritzoria."/><Accordion type="single" collapsible>{faqs.map(([q, a], i) => <AccordionItem value={String(i)} key={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent>{a}</AccordionContent></AccordionItem>)}</Accordion><div className="help-links"><Go href="/kontak">Tulis pertanyaan <MessageSquare size={16}/></Go><Go href="/pengiriman" outline>Informasi pengiriman</Go></div></div>; }
-export function Contact() { const { state, update } = useStore(); const [topic, setTopic] = useState('Pesanan'); const [sent, setSent] = useState(''); return <div className="wrap narrow"><Crumbs items={[["Bantuan", "/bantuan"], ["Kontak", ""]]}/><PageHead title="Hubungi Fritzoria" eyebrow="KAMI MENDENGARKAN" description="Formulir ini menyimpan tiket di admin demo lokal. Pesan tidak dikirim ke pihak lain."/>{sent && <div className="notice" role="status">Tiket {sent} tersimpan. Kamu dapat melihatnya di Admin demo → Pesan bantuan.</div>}<form className="panel form-stack" onSubmit={e => { e.preventDefault(); const form = e.currentTarget; const fd = new FormData(form); const id = 'HELP-' + Date.now().toString(36).toUpperCase(); update(s => ({ ...s, tickets: [{ id, name: String(fd.get('name')).trim(), email: String(fd.get('email')).trim(), topic, message: String(fd.get('message')).trim(), status: 'Baru' }, ...s.tickets] })); setSent(id); form.reset(); toast.success('Pesan disimpan ke admin lokal.'); }}><label>Nama<Input required name="name" maxLength={80}/></label><label>Email<Input required type="email" name="email"/></label><label>Topik<Pick label="Topik bantuan" value={topic} onChange={setTopic} options={['Pesanan', 'Pembayaran', 'E-book', 'Katalog', 'Kerja sama penerbit', 'Lainnya'].map(x => [x, x])}/></label><label>Pesan<textarea required name="message" minLength={10} maxLength={2000} placeholder="Ceritakan pertanyaan atau kendalamu"/></label><Button type="submit">Simpan tiket bantuan <ArrowRight size={16}/></Button></form></div>; }
+    return null; return <div className="wrap info-page"><Crumbs items={[[data.title, ""]]}/><nav className="info-mobile-nav" aria-label="Halaman informasi">{Object.entries(content).map(([s, p]) => <Link className={s === page ? 'active' : ''} key={s} href={`/${s}`}>{p.title}</Link>)}</nav><div className="info-layout"><aside><p className="eyebrow">PANDUAN TOKO</p><h3>Informasi Fritzoria</h3>{Object.entries(content).map(([s, p]) => <Link className={s === page ? 'active' : ''} key={s} href={`/${s}`}>{p.title}</Link>)}<Link href="/kontak">Chat dengan CS</Link></aside><article><PageHead title={data.title} description={data.lead}/>{data.sections.map(([h, p], index) => <section key={h}><span>{String(index + 1).padStart(2, '0')}</span><div><h2>{h}</h2><p>{p}</p></div></section>)}</article></div></div>; }
+export function Help() { return <div className="wrap help-page"><Crumbs items={[["Bantuan", ""]]}/><section className="help-hero"><div><p className="eyebrow">PUSAT BANTUAN</p><h1>Ada yang ingin ditanyakan?</h1><p>Temukan jawaban cepat atau lanjutkan langsung ke percakapan bersama CS Fritzoria.</p><div className="help-links"><Go href="/kontak">Chat dengan CS <MessageSquare size={16}/></Go><Go href="/pengiriman" outline>Informasi pengiriman</Go></div></div><div className="help-quick-grid"><Link href="/pesanan"><strong>Pesanan</strong><span>Lacak status dan kelola pembatalan</span></Link><Link href="/pembayaran"><strong>Pembayaran</strong><span>COD dan Xendit Mode Tes</span></Link><Link href="/pengembalian"><strong>Retur</strong><span>Syarat dan proses pengembalian</span></Link><Link href="/kontak"><strong>Komplain</strong><span>Sampaikan kendala kepada CS</span></Link></div></section><section className="help-faq"><div><p className="eyebrow">JAWABAN CEPAT</p><h2>Yang sering ditanyakan</h2><p>Informasi singkat mengenai belanja dan akun Fritzoria.</p></div><Accordion type="single" collapsible>{faqs.map(([q, a], i) => <AccordionItem value={String(i)} key={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent>{a}</AccordionContent></AccordionItem>)}</Accordion></section></div>; }
+export function Contact() { return <div className="wrap support-page"><Crumbs items={[["Bantuan", "/bantuan"], ["Chat CS", ""]]}/><section className="support-page-intro"><div><p className="eyebrow">LAYANAN PELANGGAN</p><h1>Hubungi CS Fritzoria</h1><p>Tanyakan produk, status pesanan, pembayaran, pengiriman, atau sampaikan komplain. Riwayat percakapan tersimpan di akun Anda dan dapat dibalas melalui Studio admin.</p></div><div className="support-promise"><MessageSquare size={23}/><strong>Percakapan tersimpan</strong><span>Anda dapat kembali kapan saja untuk membaca balasan.</span></div></section><CustomerSupport/></div>; }
 export function Promos() { const { books } = useStore(); return <div className="wrap"><Crumbs items={[["Promo", ""]]}/><PageHead title="Harga pilihan hari ini" eyebrow="PROMO FRITZORIA" description="Harga katalog terbaru. Voucher belum tersedia untuk checkout COD."/><p className="notice">Kode voucher contoh belum dapat digunakan. Total checkout menggunakan harga buku dan ongkir yang ditampilkan.</p><Grid books={books.filter(b => !b.hidden && b.originalPrice > b.price).slice(0,12)}/></div>; }
 export function Sources() { const { books } = useStore(); const visibleBooks = books.filter(b => !b.hidden); return <div className="wrap"><Crumbs items={[["Sumber katalog", ""]]}/><PageHead title="Sumber & identitas buku" eyebrow="KATALOG YANG DAPAT DITELUSURI" description={`Katalog saat ini: ${visibleBooks.length} buku. Metadata mengacu pada sumber; harga dan stok dikelola toko.`}/><p className="notice">Halaman sumber Cantik Itu Luka memuat detail edisi yang tidak seragam dengan sampul. ISBN dan jumlah halamannya sengaja tidak ditampilkan sampai edisi dipastikan. Metadata yang tidak tersedia di sumber tidak diisi dengan angka rekaan.</p><div className="source-list">{visibleBooks.map(b => <div key={b.slug}><Link href={`/buku/${b.slug}`}><strong>{b.title}</strong><small>{b.author}</small></Link><span>{b.isbn || 'ISBN belum terverifikasi'}</span><a href={b.source} target="_blank" rel="noreferrer">Sumber buku ↗</a></div>)}</div><p className="muted">Bacaan klasik: <a className="text-link" href="https://www.gutenberg.org/ebooks/1342" target="_blank" rel="noreferrer">Pride and Prejudice — Project Gutenberg</a>. File unduhan menyertakan teks sumber dan lisensinya.</p></div>; }

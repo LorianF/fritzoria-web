@@ -14,8 +14,6 @@ import {
   Star,
   Truck,
   ShieldCheck,
-  Headphones,
-  Bookmark,
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -112,7 +110,8 @@ export function Blank({
   const Heading = pageTitle ? "h1" : "h2";
   return (
     <Empty className="blank">
-      <BookOpen size={32} />
+      <div className="blank-mark"><BookOpen size={30} /></div>
+      <span className="eyebrow">FRITZORIA</span>
       <Heading>{title}</Heading>
       <p>{text}</p>
       <Go href={href}>
@@ -120,6 +119,17 @@ export function Blank({
         <ArrowRight size={16} />
       </Go>
     </Empty>
+  );
+}
+export function LoadingState({ title = "Menyiapkan halaman", rows = 3 }: { title?: string; rows?: number }) {
+  return (
+    <div className="wrap loading-shell" role="status" aria-live="polite">
+      <div className="loading-shell-head"><span /><div><i /><i /></div></div>
+      <div className="loading-shell-grid">
+        {Array.from({ length: rows }, (_, index) => <span key={index} />)}
+      </div>
+      <p>{title}…</p>
+    </div>
   );
 }
 export function PageHead({
@@ -334,6 +344,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const isCheckout = path === "/checkout";
+  const showStoreNotice = path === "/" || path.startsWith("/katalog") || path.startsWith("/buku/") || path === "/keranjang";
   const [q, setQ] = useState("");
   const [focused, setFocused] = useState(false);
   const profile = state.profiles.find((p) => p.email === state.session);
@@ -518,17 +529,14 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
         </nav>}
       </header>
-      {!isCheckout && <div className="demo-line">
-        Checkout buku fisik: COD untuk pesanan asli atau 13 VA/e-wallet Xendit Mode Tes tanpa uang sungguhan.
-        E-book dan voucher belum dapat dibeli/digunakan. <Link href="/tentang">Pelajari</Link>
+      {!isCheckout && showStoreNotice && <div className="demo-line">
+        COD asli atau 13 VA/e-wallet Xendit Mode Tes tanpa uang sungguhan. <Link href="/tentang">Pelajari</Link>
       </div>}
       <main id="main" tabIndex={-1}>
         {ready ? (
           children
         ) : (
-          <div className="wrap loading-state" role="status">
-            Memuat rak buku Fritzoria…
-          </div>
+          <LoadingState title="Memuat rak buku Fritzoria" rows={4} />
         )}
       </main>
       <footer>
@@ -563,7 +571,7 @@ export function Shell({ children }: { children: ReactNode }) {
               "Tentang kami",
               ["Fritzoria", "/tentang"],
               ["Pusat bantuan", "/bantuan"],
-              ["Hubungi kami", "/kontak"],
+              ["Chat CS", "/kontak"],
             ],
           ].map((col, i) => (
             <div key={i}>
@@ -579,6 +587,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="wrap footer-bottom">
           <span>© {new Date().getFullYear()} Fritzoria</span>
           <div>
+            <a href="https://www.instagram.com/pramzjr/" target="_blank" rel="noreferrer" className="footer-social" aria-label="Instagram Pramzjr"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg> Instagram</a>
             <Link href="/sumber">Sumber katalog</Link>
             <Link href="/privasi">Privasi</Link>
             <Link href="/syarat">Syarat penggunaan</Link>

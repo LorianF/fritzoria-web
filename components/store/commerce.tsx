@@ -29,6 +29,7 @@ import {
   Crumbs,
   Cover,
   Pick,
+  LoadingState,
 } from "./shared";
 import { Confirm } from "./account";
 import { CodOrder } from "./cod-order";
@@ -67,7 +68,7 @@ function Sum({
 }
 export function Cart() {
   const { state, books, update, booksReady, booksError, refreshBooks } = useStore();
-  if (!booksReady) return <div className="wrap loading-state"><h1>Keranjang belanja</h1><p>Memuat katalog…</p></div>;
+  if (!booksReady) return <LoadingState title="Memuat keranjang" rows={2}/>;
   if (booksError) return <div className="wrap"><h1>Keranjang belanja</h1><p role="alert">{booksError}</p><Button onClick={() => void refreshBooks()}>Coba lagi</Button></div>;
   const t = totals(state.cart, books, undefined, "Reguler");
   const error = cartError(state.cart, books);
@@ -211,7 +212,7 @@ export function Orders() {
   const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   if (state.session && !ordersReady)
-    return <div className="loading-state" role="status"><h1>Pesanan saya</h1><p>Memuat pesanan…</p></div>;
+    return <LoadingState title="Memuat pesanan" rows={3}/>;
   if (state.session && ordersError)
     return (
       <div className="wrap">

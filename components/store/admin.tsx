@@ -57,6 +57,7 @@ import {
   bookError,
 } from "@/lib/supabase/admin-books";
 import { CategoriesPanel, useCategories } from './categories';
+import { AdminSupport } from './support';
 const sections = [
   ["Ringkasan", "", LayoutDashboard],
   ["Buku & stok", "produk", BookOpen],
@@ -238,7 +239,7 @@ export function Admin({ section = "" }: { section?: string }) {
           />
           {["", "pesanan", "pelanggan"].includes(section) && (!ordersReady || ordersError) && <p className="notice" role="status">{ordersError || "Memuat pesanan…"} {ordersError && <Button onClick={() => void refreshOrders()}>Coba lagi</Button>}</p>}
           {["", "pelanggan"].includes(section) && (!customersReady || customersError) && <p className="notice" role="status">{customersError || "Memuat pelanggan…"}</p>}
-          {["promo", "ulasan", "bantuan"].includes(section) && <p className="notice">Fitur lokal: data pada bagian ini hanya tersimpan di browser ini, tidak tersinkron lintas perangkat. Voucher tidak berlaku pada checkout COD; tiket tidak dikirim ke layanan pelanggan.</p>}
+          {["promo", "ulasan"].includes(section) && <p className="notice">Fitur lokal: data pada bagian ini hanya tersimpan di browser ini dan belum tersinkron lintas perangkat. Voucher tidak berlaku pada checkout COD.</p>}
           {section === "" && (
             <>
               <div className="stat-grid four">
@@ -757,45 +758,7 @@ export function Admin({ section = "" }: { section?: string }) {
             </div>
           )}
           {section === "bantuan" && (
-            <div className="panel">
-              <h2>Pesan pembaca</h2>
-              {state.tickets.map((t) => (
-                <div className="review-admin" key={t.id}>
-                  <div>
-                    <strong>
-                      {t.topic} · {t.id}
-                    </strong>
-                    <p>
-                      {t.name} · {t.email}
-                    </p>
-                    <p>{t.message}</p>
-                    <span className="small-tag">{t.status}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      update((s) => ({
-                        ...s,
-                        tickets: s.tickets.map((x) =>
-                          x.id === t.id
-                            ? {
-                                ...x,
-                                status:
-                                  x.status === "Baru" ? "Selesai" : "Baru",
-                              }
-                            : x,
-                        ),
-                      }))
-                    }
-                  >
-                    {t.status === "Baru" ? "Tandai selesai" : "Buka kembali"}
-                  </Button>
-                </div>
-              ))}
-              {!state.tickets.length && (
-                <p className="muted">Belum ada pesan bantuan.</p>
-              )}
-            </div>
+            <AdminSupport />
           )}
         </div>
       </SidebarInset>
