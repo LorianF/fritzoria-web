@@ -44,7 +44,11 @@ export async function POST(request: Request) {
     try { lines=parseSimulationLines(body.lines); } catch(error) { throw new PaymentTestError((error as Error).message); }
     const existing = await db.from("simulation_orders").select("*").eq("user_id",userId).eq("id",body.key).maybeSingle();
     if (existing.error) {
-      console.error("sandbox_order_lookup_failed", existing.error.code);
+      console.error("sandbox_order_lookup_failed", {
+        code: existing.error.code || "unknown",
+        message: existing.error.message || "unknown",
+        details: existing.error.details || "",
+      });
       throw new PaymentTestError("Penyimpanan simulasi belum tersedia.",503);
     }
     if (existing.data) {
