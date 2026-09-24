@@ -3,12 +3,27 @@ import {useEffect,useRef,useState} from "react";
 import {getSupabaseBrowserClient} from "@/lib/supabase/client";
 import {money,totals,cartError} from "@/lib/store/logic";
 import {useStore} from "./provider";
-import {Blank,Button,Go,PageHead} from "./shared";
+import {Blank,Button,CheckoutProgress,Cover,Go,PageHead} from "./shared";
 import type {SimulationLine} from "@/lib/payments/simulation-order";
+import {ArrowLeft,Landmark,ShieldCheck,Truck,WalletCards} from "lucide-react";
 
 type Order={id:string;created_at:string;items:SimulationLine[];subtotal:number;shipping:number;total:number;channel:string;session_id:string|null;setup_error:string;status?:string;expires_at?:string;verified_at?:string};
 type Result={order:Order;payment:{id:string;url:string;status:string;amount:number}|null};
-const methods=[["DANA","DANA"],["OVO","OVO"],["SHOPEEPAY","ShopeePay"],["LINKAJA","LinkAja"],["ASTRAPAY","AstraPay"],["GOPAY","GoPay"],["BNI_VIRTUAL_ACCOUNT","VA BNI"],["BRI_VIRTUAL_ACCOUNT","VA BRI"],["BCA_VIRTUAL_ACCOUNT","VA BCA"],["MANDIRI_VIRTUAL_ACCOUNT","VA Mandiri"],["PERMATA_VIRTUAL_ACCOUNT","VA Permata"],["CIMB_VIRTUAL_ACCOUNT","VA CIMB"],["BSI_VIRTUAL_ACCOUNT","VA BSI"]];
+const methods=[
+  {value:"DANA",label:"DANA",mark:"DANA",kind:"wallet"},
+  {value:"OVO",label:"OVO",mark:"OVO",kind:"wallet"},
+  {value:"SHOPEEPAY",label:"ShopeePay",mark:"SP",kind:"wallet"},
+  {value:"LINKAJA",label:"LinkAja",mark:"LA",kind:"wallet"},
+  {value:"ASTRAPAY",label:"AstraPay",mark:"AP",kind:"wallet"},
+  {value:"GOPAY",label:"GoPay",mark:"GP",kind:"wallet"},
+  {value:"BNI_VIRTUAL_ACCOUNT",label:"BNI",mark:"BNI",kind:"va"},
+  {value:"BRI_VIRTUAL_ACCOUNT",label:"BRI",mark:"BRI",kind:"va"},
+  {value:"BCA_VIRTUAL_ACCOUNT",label:"BCA",mark:"BCA",kind:"va"},
+  {value:"MANDIRI_VIRTUAL_ACCOUNT",label:"Mandiri",mark:"MDR",kind:"va"},
+  {value:"PERMATA_VIRTUAL_ACCOUNT",label:"Permata",mark:"PRM",kind:"va"},
+  {value:"CIMB_VIRTUAL_ACCOUNT",label:"CIMB",mark:"CIMB",kind:"va"},
+  {value:"BSI_VIRTUAL_ACCOUNT",label:"BSI",mark:"BSI",kind:"va"},
+] as const;
 const statuses:Record<string,string>={ACTIVE:"Menunggu pembayaran simulasi",COMPLETED:"Simulasi selesai — bukan pembayaran asli",EXPIRED:"Simulasi kedaluwarsa",CANCELED:"Simulasi dibatalkan"};
 async function api<T>(path="",body?:unknown):Promise<T>{
   const {data}=await getSupabaseBrowserClient().auth.getSession();
@@ -80,27 +95,47 @@ export function SimulationCheckout({onBack}:{onBack:()=>void}){
       // Preserve the attempt key until an explicit retry after expiry/cancellation.
     }catch(e){setError((e as Error).message);}finally{lock.current=false;setBusy(false);}
   }
-  return <div className="wrap">
+  return <div className="wrap checkout-page simulation-checkout">
     <PageHead title="Checkout — Mode Tes" description="Xendit sandbox · Tidak menerima uang sungguhan · Tanpa QRIS"/>
-    <p>Tidak memerlukan rekening, alamat, atau nomor HP pribadi. Gunakan simulasi/nomor uji resmi Xendit; jangan transfer uang sungguhan.</p>
+    <CheckoutProgress current={3}/>
+    <div className="sandbox-banner"><ShieldCheck size={22}/><div><strong>Lingkungan pembayaran aman untuk pengujian</strong><p>Tidak memerlukan rekening, alamat, atau nomor HP pribadi. Gunakan simulasi resmi Xendit dan jangan transfer uang sungguhan.</p></div><span>MODE TES</span></div>
     {result?<Receipt key={result.order.id} value={result}/>:<div className="checkout-layout">
-      <section className="panel"><h2>Pembayaran simulasi</h2>
-        <label htmlFor="simulation-channel">VA / e-wallet — Mode Tes</label>
-        <select id="simulation-channel" value={channel} disabled={busy} onChange={e=>setChannel(e.target.value)}>{methods.map(([v,l])=><option key={v} value={v}>{l} — Mode Tes</option>)}</select>
-        <label htmlFor="simulation-courier">Ongkir simulasi</label>
-        <select id="simulation-courier" value={courier} disabled={busy} onChange={e=>setCourier(e.target.value)}><option>Reguler</option><option>Ekspres</option></select>
-        <p>Channel mengikuti ketersediaan Xendit. Simulasi tidak memicu pengiriman atau mengubah keranjang Anda.</p>
+      <section className="panel simulation-payment-panel">
+        <div className="checkout-section-title"><span>1</span><div><h2><WalletCards size={21}/> Pilih channel pembayaran</h2><p>Semua channel di bawah menggunakan Xendit sandbox.</p></div></div>
+        <fieldset disabled={busy} className="simulation-method-fieldset">
+          <legend><WalletCards size={17}/> E-wallet</legend>
+          <div className="simulation-method-grid">
+            {methods.filter(method=>method.kind==="wallet").map(method=><label className={`simulation-method${channel===method.value?" chosen":""}`} key={method.value}>
+              <input type="radio" name="simulation-channel" value={method.value} checked={channel===method.value} onChange={e=>setChannel(e.target.value)}/>
+              <span className="simulation-method-mark">{method.mark}</span><strong>{method.label}</strong><small>Mode Tes</small>
+            </label>)}
+          </div>
+          <legend><Landmark size={17}/> Virtual account</legend>
+          <div className="simulation-method-grid">
+            {methods.filter(method=>method.kind==="va").map(method=><label className={`simulation-method${channel===method.value?" chosen":""}`} key={method.value}>
+              <input type="radio" name="simulation-channel" value={method.value} checked={channel===method.value} onChange={e=>setChannel(e.target.value)}/>
+              <span className="simulation-method-mark">{method.mark}</span><strong>VA {method.label}</strong><small>Mode Tes</small>
+            </label>)}
+          </div>
+        </fieldset>
+        <div className="checkout-form-section simulation-shipping">
+          <div className="checkout-section-title"><span>2</span><div><h2><Truck size={20}/> Ongkir simulasi</h2><p>Tidak memicu pengiriman barang.</p></div></div>
+          <div className="simulation-courier-grid">
+            {["Reguler","Ekspres"].map(option=><label className={courier===option?"chosen":""} key={option}><input type="radio" name="simulation-courier" value={option} checked={courier===option} disabled={busy} onChange={e=>setCourier(e.target.value)}/><span><strong>{option}</strong><small>{option==="Reguler"?"Rp18.000":"Rp30.000"}</small></span></label>)}
+          </div>
+        </div>
       </section>
-      <aside className="panel order-summary"><h2>Ringkasan Mode Tes</h2>
-        {state.cart.map(l=><p key={l.slug}>{l.qty} × {books.find(b=>b.slug===l.slug)?.title||l.slug}</p>)}
-        <p>Subtotal: {money(total.subtotal)}</p><p>Ongkir: {money(total.shipping)}</p><strong>Total simulasi: {money(total.total)}</strong>
-        <label className="check-label"><input type="checkbox" checked={agree} disabled={busy} onChange={e=>setAgree(e.target.checked)}/>Saya memahami ini simulasi, bukan pembelian atau pembayaran asli.</label>
+      <aside className="panel order-summary checkout-order-summary simulation-summary">
+        <div className="checkout-summary-head"><div><p className="eyebrow">Mode Tes</p><h2>Ringkasan</h2></div><span>{methods.find(method=>method.value===channel)?.label}</span></div>
+        <div className="checkout-summary-items">{state.cart.map(line=>{const book=books.find(item=>item.slug===line.slug);return <div className="checkout-summary-item" key={line.slug}>{book&&<Cover book={book}/>}<span><strong>{book?.title||line.slug}</strong><small>{line.qty} × buku fisik</small></span><b>{money((book?.price||0)*line.qty)}</b></div>})}</div>
+        <dl className="checkout-totals"><div><dt>Subtotal</dt><dd>{money(total.subtotal)}</dd></div><div><dt>Ongkir simulasi</dt><dd>{money(total.shipping)}</dd></div><div className="grand"><dt>Total simulasi</dt><dd>{money(total.total)}</dd></div></dl>
+        <label className="check-label checkout-agreement"><input type="checkbox" checked={agree} disabled={busy} onChange={e=>setAgree(e.target.checked)}/>Saya memahami ini simulasi, bukan pembelian atau pembayaran asli.</label>
         {(error||invalid||booksError)&&<p role="alert" className="form-error">{error||invalid||booksError}</p>}
-        <Button disabled={busy||!agree||!!invalid||!booksReady||!!booksError} onClick={()=>void submit()}>{busy?"Membuat simulasi…":"Buat pesanan Mode Tes"}</Button>
+        <Button className="wide checkout-primary-action" disabled={busy||!agree||!!invalid||!booksReady||!!booksError} onClick={()=>void submit()}>{busy?"Membuat simulasi…":"Lanjut ke Xendit Mode Tes"}</Button>
+        <p className="checkout-assurance"><ShieldCheck size={15}/> Tidak memotong stok dan tidak tercatat sebagai pendapatan.</p>
       </aside>
     </div>}
-    <p><Go href="/pesanan-simulasi" outline>Riwayat pesanan Mode Tes</Go></p>
-    <Button variant="outline" disabled={busy} onClick={onBack}>Kembali ke pilihan COD</Button>
+    <div className="simulation-footer-actions"><Button variant="outline" disabled={busy} onClick={onBack}><ArrowLeft size={16}/> Kembali ke COD</Button><Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go></div>
   </div>;
 }
 

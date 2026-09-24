@@ -144,6 +144,30 @@ export function PageHead({
     </div>
   );
 }
+export function CheckoutProgress({ current }: { current: number }) {
+  const steps = ["Keranjang", "Pengiriman", "Pembayaran", "Selesai"];
+  return (
+    <ol className="checkout-progress" aria-label="Tahapan checkout">
+      {steps.map((label, index) => {
+        const step = index + 1;
+        const complete = step < current;
+        const active = step === current;
+        return (
+          <li
+            key={label}
+            className={complete ? "complete" : active ? "current" : ""}
+            aria-current={active ? "step" : undefined}
+          >
+            <span aria-hidden="true">
+              {complete ? <Check size={14} strokeWidth={2.5} /> : step}
+            </span>
+            <strong>{label}</strong>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 export function Crumbs({ items }: { items: [string, string][] }) {
   return (
     <nav aria-label="Breadcrumb" className="crumbs">
@@ -309,6 +333,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { state, books, ready, isAdmin } = useStore();
   const router = useRouter();
   const path = usePathname();
+  const isCheckout = path === "/checkout";
   const [q, setQ] = useState("");
   const [focused, setFocused] = useState(false);
   const profile = state.profiles.find((p) => p.email === state.session);
@@ -327,7 +352,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <a href="#main" className="skip-link">
         Langsung ke konten
       </a>
-      <div className="utility">
+      {!isCheckout && <div className="utility">
         <div className="wrap">
           <span>
             <BookOpen size={14} /> Fritzoria · Buku fisik & digital
@@ -336,10 +361,10 @@ export function Shell({ children }: { children: ReactNode }) {
             Pusat bantuan <ArrowRight size={13} />
           </Link>
         </div>
-      </div>
-      <header className="site-header">
+      </div>}
+      <header className={`site-header${isCheckout ? " checkout-header" : ""}`}>
         <div className="wrap main-header">
-          <Sheet>
+          {!isCheckout && <Sheet>
             <SheetTrigger asChild>
               <button
                 className="mobile-menu icon-button"
@@ -379,14 +404,14 @@ export function Shell({ children }: { children: ReactNode }) {
                 )}
               </div>
             </SheetContent>
-          </Sheet>
+          </Sheet>}
           <Link href="/" className="brand">
             <span className="brand-mark">f.</span>
             <span>
               Fritzoria<span className="brand-caption">BOOKSTORE</span>
             </span>
           </Link>
-          <div className="search-wrap">
+          {!isCheckout && <div className="search-wrap">
             <form
               role="search"
               onSubmit={(e) => {
@@ -431,7 +456,16 @@ export function Shell({ children }: { children: ReactNode }) {
                 </Link>
               </div>
             )}
-          </div>
+          </div>}
+          {isCheckout && (
+            <div className="checkout-header-note">
+              <ShieldCheck size={18} />
+              <span>
+                Checkout aman
+                <small>COD asli atau Xendit Mode Tes</small>
+              </span>
+            </div>
+          )}
           <div className="header-actions">
             <Link
               href="/wishlist"
@@ -469,7 +503,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
           </div>
         </div>
-        <nav className="desktop-nav wrap" aria-label="Navigasi utama">
+        {!isCheckout && <nav className="desktop-nav wrap" aria-label="Navigasi utama">
           {nav.map(([label, href]) => (
             <Link
               className={path === href ? "active" : ""}
@@ -482,12 +516,12 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link className="track" href="/pesanan">
             <Truck size={16} /> Lacak pesanan
           </Link>
-        </nav>
+        </nav>}
       </header>
-      <div className="demo-line">
+      {!isCheckout && <div className="demo-line">
         Checkout buku fisik: COD untuk pesanan asli atau 13 VA/e-wallet Xendit Mode Tes tanpa uang sungguhan.
         E-book dan voucher belum dapat dibeli/digunakan. <Link href="/tentang">Pelajari</Link>
-      </div>
+      </div>}
       <main id="main" tabIndex={-1}>
         {ready ? (
           children

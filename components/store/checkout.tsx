@@ -3,11 +3,27 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useStore } from "./provider";
-import { Button, Blank, PageHead, Pick, Go } from "./shared";
+import {
+  Button,
+  Blank,
+  CheckoutProgress,
+  Cover,
+  PageHead,
+  Pick,
+  Go,
+} from "./shared";
 import { AddressEditor } from "./account";
 import { totals, money, cartError } from "@/lib/store/logic";
 import { createOrder } from "@/lib/supabase/orders";
 import { SimulationCheckout } from "./simulation-checkout";
+import {
+  Banknote,
+  Check,
+  CreditCard,
+  MapPin,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 
 export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
   const {
@@ -168,25 +184,63 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
     }
   };
   return (
-    <div className="wrap">
+    <div className="wrap checkout-page">
       <PageHead
         title="Checkout"
         description={testEnabled ? "Buku fisik · COD atau pembayaran online Mode Tes" : "Buku fisik · Bayar di tempat (COD)"}
       />
-      {testEnabled && <section className="panel" style={{marginBottom:24}}>
-        <h2>Metode pembayaran tersedia</h2>
-        <p><strong>COD</strong> membuat pesanan asli dan dibayar saat buku diterima.</p>
-        <p><strong>13 VA / e-wallet Xendit — Mode Tes</strong> tersedia untuk menguji alur pembayaran tanpa uang sungguhan. Data tes disimpan terpisah dan tidak mengubah pesanan asli maupun stok.</p>
-        <p className="muted small">DANA, OVO, ShopeePay, LinkAja, AstraPay, GoPay, VA BNI, BRI, BCA, Mandiri, Permata, CIMB, dan BSI.</p>
-        <div className="button-row">
-          <Button onClick={()=>setTestMode(true)}>Pilih pembayaran online Mode Tes</Button>
-          <Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go>
-        </div>
-      </section>}
+      <CheckoutProgress current={2} />
+      {testEnabled && (
+        <section className="checkout-methods" aria-labelledby="payment-method-title">
+          <div className="checkout-methods-copy">
+            <p className="eyebrow">Pilih jalur pembayaran</p>
+            <h2 id="payment-method-title">Bagaimana Anda ingin melanjutkan?</h2>
+            <p>
+              COD membuat pesanan asli. Xendit Mode Tes hanya menguji alur
+              pembayaran tanpa uang sungguhan.
+            </p>
+          </div>
+          <div className="checkout-method-grid">
+            <button
+              type="button"
+              className="checkout-method-card chosen"
+              aria-pressed="true"
+            >
+              <span className="checkout-method-icon"><Banknote size={22} /></span>
+              <span>
+                <strong>Bayar di tempat</strong>
+                <small>Pesanan asli · dibayar saat buku diterima</small>
+              </span>
+              <Check className="checkout-method-check" size={18} />
+            </button>
+            <button
+              type="button"
+              className="checkout-method-card test"
+              aria-pressed="false"
+              onClick={() => setTestMode(true)}
+            >
+              <span className="checkout-method-icon"><CreditCard size={22} /></span>
+              <span>
+                <strong>Xendit Mode Tes</strong>
+                <small>13 VA & e-wallet · tanpa uang sungguhan</small>
+              </span>
+              <span className="test-flag">MODE TES</span>
+            </button>
+          </div>
+          <div className="checkout-method-foot">
+            <span><ShieldCheck size={16} /> Data tes tidak mengubah pesanan asli atau stok.</span>
+            <Go href="/pesanan-simulasi" outline>Riwayat Mode Tes</Go>
+          </div>
+        </section>
+      )}
       <div className="checkout-layout">
-        <div className="panel">
+        <div className="panel checkout-form-panel">
           <fieldset disabled={busy}>
-            <h2>Alamat pengiriman</h2>
+            <section className="checkout-form-section">
+            <div className="checkout-section-title">
+              <span>1</span>
+              <div><h2><MapPin size={20} /> Alamat pengiriman</h2><p>Pastikan penerima dan alamat sudah benar.</p></div>
+            </div>
             <Pick
               label="Pilih alamat"
               value={chosen?.id || ""}
@@ -194,7 +248,7 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
               options={addresses.map((a) => [a.id, `${a.label} — ${a.name}`])}
             />
             {chosen && (
-              <p>
+              <p className="checkout-address-preview">
                 {chosen.name} · {chosen.phone}
                 <br />
                 {chosen.street}, {chosen.city}, {chosen.province}{" "}
@@ -204,7 +258,12 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
             <Button variant="outline" onClick={() => setEditor(true)}>
               Tambah alamat
             </Button>
-            <h2>Pengiriman</h2>
+            </section>
+            <section className="checkout-form-section">
+            <div className="checkout-section-title">
+              <span>2</span>
+              <div><h2><Truck size={20} /> Pengiriman</h2><p>Pilih kecepatan pengiriman buku.</p></div>
+            </div>
             <Pick
               label="Metode pengiriman"
               value={courier}
@@ -218,11 +277,12 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
               Gratis ongkir mulai Rp250.000. Pengiriman dikelola toko; belum
               terhubung otomatis ke kurir.
             </p>
-            <h2>COD — pesanan asli</h2>
-            <p>
-              Bayar saat barang diterima. Untuk VA atau e-wallet sandbox, pilih
-              tombol pembayaran online Mode Tes di atas.
-            </p>
+            </section>
+            <section className="checkout-form-section">
+            <div className="checkout-section-title">
+              <span>3</span>
+              <div><h2><Banknote size={20} /> Catatan pesanan</h2><p>COD dipilih. Pembayaran dilakukan saat buku diterima.</p></div>
+            </div>
             <label>
               Catatan (opsional)
               <textarea
@@ -231,20 +291,32 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
+            </section>
           </fieldset>
         </div>
-        <aside className="panel order-summary">
-          <h2>Ringkasan pesanan</h2>
-          {state.cart.map((l) => (
-            <p key={`${l.slug}-${l.format}`}>
-              {l.qty} × {books.find((b) => b.slug === l.slug)?.title || l.slug}
-            </p>
-          ))}
-          <p>Subtotal: {money(total.subtotal)}</p>
-          <p>Ongkir: {money(total.shipping)}</p>
-          <strong>Total: {money(total.total)}</strong>
-          <p className="muted">Voucher belum tersedia untuk checkout COD.</p>
-          <label className="check-label">
+        <aside className="panel order-summary checkout-order-summary">
+          <div className="checkout-summary-head">
+            <div><p className="eyebrow">Pesanan Anda</p><h2>Ringkasan</h2></div>
+            <span>{state.cart.reduce((sum, line) => sum + line.qty, 0)} buku</span>
+          </div>
+          <div className="checkout-summary-items">
+            {state.cart.map((line) => {
+              const book = books.find((item) => item.slug === line.slug);
+              return (
+                <div className="checkout-summary-item" key={`${line.slug}-${line.format}`}>
+                  {book && <Cover book={book} />}
+                  <span><strong>{book?.title || line.slug}</strong><small>{line.qty} × {line.format}</small></span>
+                  <b>{money((book?.price || 0) * line.qty)}</b>
+                </div>
+              );
+            })}
+          </div>
+          <dl className="checkout-totals">
+            <div><dt>Subtotal</dt><dd>{money(total.subtotal)}</dd></div>
+            <div><dt>Pengiriman</dt><dd>{money(total.shipping)}</dd></div>
+            <div className="grand"><dt>Total</dt><dd>{money(total.total)}</dd></div>
+          </dl>
+          <label className="check-label checkout-agreement">
             <input
               type="checkbox"
               checked={agree}
@@ -260,6 +332,7 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
             </p>
           )}
           <Button
+            className="wide checkout-primary-action"
             disabled={
               busy ||
               !agree ||
@@ -272,9 +345,10 @@ export function Checkout({testEnabled=false}:{testEnabled?:boolean}) {
           >
             {busy ? "Menyimpan pesanan…" : "Buat pesanan COD"}
           </Button>
-          <Go href="/keranjang" outline>
+          <Go href="/keranjang" outline className="wide">
             Kembali ke keranjang
           </Go>
+          <p className="checkout-assurance"><ShieldCheck size={15} /> Pesanan baru dibuat setelah tombol konfirmasi ditekan.</p>
         </aside>
       </div>
       <AddressEditor open={editor} onClose={() => setEditor(false)} />
