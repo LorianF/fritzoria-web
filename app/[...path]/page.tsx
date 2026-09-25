@@ -12,6 +12,7 @@ const pageTitles:Record<string,string>={katalog:'Katalog',wishlist:'Wishlist',pe
 
 function valid(path:string[]){if(path.length===1)return singles.includes(path[0]);if(path.length!==2)return false;if(['buku','penulis','pesanan','pembayaran','invoice','baca'].includes(path[0]))return true;if(path[0]==='akun')return ['alamat','pengaturan','notifikasi'].includes(path[1]);return path[0]==='admin'&&admin.includes(path[1]);}
 function decodeSegment(value=''){try{return decodeURIComponent(value);}catch{return value;}}
+function turnstileSiteKey(){const name=['NEXT','PUBLIC','TURNSTILE','SITE','KEY'].join('_');return process.env[name]?.trim()||'';}
 
 export async function generateMetadata({params}:Props):Promise<Metadata>{
   const {path}=await params;
@@ -23,4 +24,4 @@ export async function generateMetadata({params}:Props):Promise<Metadata>{
   return {title:`${title} | Fritzoria`,description:book?.summary||'Jelajahi buku fisik dan e-book di Fritzoria.'};
 }
 
-export default async function Page({params}:Props){const {path}=await params;if(!valid(path))notFound();if(path[0]==='buku'&&!await loadPublicBook(decodeSegment(path[1])))notFound();return <Storefront path={path}/>;}
+export default async function Page({params}:Props){const {path}=await params;if(!valid(path))notFound();if(path[0]==='buku'&&!await loadPublicBook(decodeSegment(path[1])))notFound();return <Storefront path={path} turnstileSiteKey={turnstileSiteKey()}/>;}

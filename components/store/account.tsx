@@ -195,7 +195,7 @@ export function AddressEditor({
     </Dialog>
   );
 }
-export function Auth({ mode = "masuk" }: { mode?: string }) {
+export function Auth({ mode = "masuk", turnstileSiteKey }: { mode?: string; turnstileSiteKey?: string }) {
   const { state, update } = useStore();
   const router = useRouter();
   const params = useSearchParams();
@@ -204,7 +204,6 @@ export function Auth({ mode = "masuk" }: { mode?: string }) {
   const [resetSent, setResetSent] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
   const register = mode === "daftar";
   const reset = mode === "lupa-sandi";
   const raw = params.get("next") || "/akun";

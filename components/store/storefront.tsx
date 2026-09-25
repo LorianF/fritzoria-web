@@ -12,7 +12,7 @@ import {useStore} from './provider';
 
 function decodePathSegment(value:string){try{return decodeURIComponent(value);}catch{return value;}}
 
-function Routed({path}:{path:string[]}){
+function Routed({path,turnstileSiteKey}:{path:string[];turnstileSiteKey?:string}){
   const {books}=useStore();
   const router=useRouter();
   const [root='',rawId='']=path;
@@ -43,7 +43,7 @@ function Routed({path}:{path:string[]}){
   else if(root==='pembayaran'&&id)page=<OrderDetail id={id} payment/>;
   else if(root==='invoice'&&id)page=<OrderDetail id={id} invoice/>;
   else if(root==='akun')page=<Account section={id||'ringkasan'}/>;
-  else if(['masuk','daftar','lupa-sandi'].includes(root))page=<Auth key={root} mode={root}/>;
+  else if(['masuk','daftar','lupa-sandi'].includes(root))page=<Auth key={root} mode={root} turnstileSiteKey={turnstileSiteKey}/>;
   else if(root==='atur-ulang-sandi')page=<UpdatePassword/>;
   else if(root==='rak-digital')page=<DigitalShelf/>;
   else if(root==='baca'&&id)page=<Reader key={id} slug={id}/>;
@@ -56,4 +56,4 @@ function Routed({path}:{path:string[]}){
   return <Shell>{page}</Shell>;
 }
 
-export default function Storefront({path}:{path:string[]}){return <Suspense fallback={<div className="loading-state" role="status">Memuat Fritzoria…</div>}><Routed path={path}/></Suspense>}
+export default function Storefront({path,turnstileSiteKey}:{path:string[];turnstileSiteKey?:string}){return <Suspense fallback={<div className="loading-state" role="status">Memuat Fritzoria…</div>}><Routed path={path} turnstileSiteKey={turnstileSiteKey}/></Suspense>}
